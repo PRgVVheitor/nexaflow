@@ -1,5 +1,7 @@
 # NexaFlow
 
+[![CI](https://github.com/PRgVVheitor/nexaflow/actions/workflows/ci.yml/badge.svg)](https://github.com/PRgVVheitor/nexaflow/actions/workflows/ci.yml)
+
 Aplicacao full-stack para centralizar financas, tarefas e rotina em um painel unico.
 
 ## Objetivo
@@ -21,6 +23,10 @@ Mostrar no GitHub um produto com separacao clara entre front-end e back-end, con
 - PostgreSQL
 - Prisma ORM
 - Docker Compose
+- Vitest
+- Testing Library
+- Supertest
+- GitHub Actions
 - JavaScript
 
 ## Funcionalidades
@@ -129,8 +135,19 @@ npm run dev:backend
 
 O arquivo `render.yaml` cria uma API Node e um PostgreSQL no Render, aplica as migrations em cada deploy e carrega o seed demonstrativo no primeiro deploy. Durante o deploy, configure `CLIENT_ORIGIN` com a URL publicada do frontend.
 
+## Testes e integracao continua
+
+Com PostgreSQL ativo, execute toda a suite local:
+
+```bash
+npm test
+```
+
+Os testes do backend validam as rotas HTTP contra PostgreSQL real. Os testes do frontend verificam o carregamento do dashboard e a navegacao para o Taskly com uma API simulada.
+
+O workflow `.github/workflows/ci.yml` cria um PostgreSQL temporario e executa migrations, testes e build automaticamente em cada push e pull request.
+
 ## Proximas melhorias
 
 - Criar autenticacao.
-- Adicionar testes automatizados.
 - Publicar o frontend e conectar ao backend hospedado.
