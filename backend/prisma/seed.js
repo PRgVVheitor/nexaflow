@@ -37,7 +37,6 @@ const tasks = [
 
 async function main() {
   await prisma.$transaction([
-    prisma.lead.deleteMany(),
     prisma.task.deleteMany(),
     prisma.transaction.deleteMany(),
     prisma.user.deleteMany(),

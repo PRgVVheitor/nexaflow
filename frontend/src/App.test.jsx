@@ -91,6 +91,7 @@ describe("NexaFlow", () => {
     render(<App />);
 
     expect(await screen.findByText("Heitor Teste")).toBeInTheDocument();
+    expect(screen.queryByTitle("Estudos")).not.toBeInTheDocument();
     expect(await screen.findByText("Salario de teste")).toBeInTheDocument();
     expect(globalThis.fetch).toHaveBeenCalledWith(
       "http://127.0.0.1:3001/api/transactions",

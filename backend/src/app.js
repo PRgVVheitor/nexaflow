@@ -240,36 +240,6 @@ app.delete(
   }),
 );
 
-app.get(
-  "/api/leads",
-  requireAuth,
-  asyncRoute(async (req, res) => {
-    const leads = await prisma.lead.findMany({
-      where: { userId: req.auth.userId },
-      orderBy: { createdAt: "desc" },
-    });
-    res.json(leads);
-  }),
-);
-
-app.post(
-  "/api/leads",
-  requireAuth,
-  asyncRoute(async (req, res) => {
-    const email = normalizeText(req.body.email).toLowerCase();
-
-    if (!email || !email.includes("@")) {
-      res.status(400).json({ message: "Email invalido." });
-      return;
-    }
-
-    const lead = await prisma.lead.create({
-      data: { email, userId: req.auth.userId },
-    });
-    res.status(201).json(lead);
-  }),
-);
-
 app.use((error, req, res, next) => {
   console.error(error);
 

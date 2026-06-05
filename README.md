@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/PRgVVheitor/nexaflow/actions/workflows/ci.yml/badge.svg)](https://github.com/PRgVVheitor/nexaflow/actions/workflows/ci.yml)
 
-Aplicacao full-stack para centralizar financas, tarefas e rotina em um painel unico.
+Aplicacao full-stack para centralizar financas e produtividade em um painel unico.
 
 ## Objetivo
 
@@ -31,13 +31,12 @@ Mostrar no GitHub um produto com separacao clara entre front-end e back-end, con
 
 ## Funcionalidades
 
-- Dashboard financeiro responsivo com graficos de barras, pizza e linha.
+- Dashboard financeiro responsivo com graficos, selecao e comparacao mensal.
 - Cadastro e remocao de transacoes.
 - Taskly com criacao, conclusao, filtros e remocao de tarefas.
 - Cadastro, login, restauracao de sessao e logout.
 - Dados financeiros e tarefas isolados por usuario.
 - Senhas protegidas com bcrypt e sessoes assinadas com JWT.
-- Area de estudos com formulario conectado ao back-end.
 - Componentes reutilizaveis: Card, Button, Input, Badge, Table e Select.
 - Animacoes e transicoes com Framer Motion.
 - Persistencia em PostgreSQL com Prisma ORM.
@@ -108,7 +107,6 @@ O schema fica em `backend/prisma/schema.prisma` e possui:
 
 - `Transaction`: entradas e saidas financeiras.
 - `Task`: tarefas e prioridades do Taskly.
-- `Lead`: emails capturados pela area de estudos.
 - `User`: contas, credenciais protegidas e relacionamento com os dados privados.
 
 Comandos uteis:

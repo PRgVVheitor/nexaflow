@@ -3,7 +3,6 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   BarChart3,
-  BookOpenCheck,
   CalendarDays,
   CheckCircle2,
   ClipboardList,
@@ -14,10 +13,8 @@ import {
   Loader2,
   LogIn,
   LogOut,
-  Mail,
   Plus,
   Search,
-  Send,
   ShieldCheck,
   Sparkles,
   Target,
@@ -75,7 +72,6 @@ const longMonth = new Intl.DateTimeFormat("pt-BR", {
 
 const tabs = [
   { id: "finance", label: "Financas", icon: DollarSign },
-  { id: "landing", label: "Estudos", icon: BookOpenCheck },
   { id: "tasks", label: "Taskly", icon: ClipboardList },
 ];
 
@@ -150,7 +146,7 @@ function App() {
           <div className="min-w-0">
             <p className="text-lg font-bold text-zinc-50">NexaFlow</p>
             <p className="truncate text-sm text-zinc-500">
-              Financas, estudos e tarefas conectados
+              Financas e produtividade conectadas
             </p>
           </div>
         </div>
@@ -158,7 +154,7 @@ function App() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <nav
             aria-label="Navegacao principal"
-            className="grid grid-cols-3 rounded-lg border border-zinc-800 bg-zinc-900/70 p-1"
+            className="grid grid-cols-2 rounded-lg border border-zinc-800 bg-zinc-900/70 p-1"
           >
             {tabs.map((tab) => {
               const Icon = tab.icon;
@@ -206,7 +202,6 @@ function App() {
           transition={{ duration: 0.25 }}
         >
           {activeTab === "finance" && <FinanceDashboard />}
-          {activeTab === "landing" && <StudyLanding />}
           {activeTab === "tasks" && <TasksApp />}
         </motion.div>
       </AnimatePresence>
@@ -275,8 +270,8 @@ function AuthScreen({ onAuthenticated }) {
               Sua rotina organizada em um unico fluxo.
             </h1>
             <p className="mt-4 max-w-xl text-sm leading-7 text-zinc-400 sm:text-base">
-              Acompanhe financas, estudos e tarefas em um ambiente privado, conectado e
-              preparado para acompanhar seu progresso.
+              Acompanhe suas financas e tarefas em um ambiente privado, conectado e
+              preparado para organizar seu dia.
             </p>
           </div>
 
@@ -937,115 +932,6 @@ function TransactionForm({ form, onSubmit, setForm }) {
   );
 }
 
-function StudyLanding() {
-  const [email, setEmail] = useState("");
-  const [message, setMessage] = useState("");
-
-  async function submitLead(event) {
-    event.preventDefault();
-    setMessage("");
-    await api("/api/leads", {
-      method: "POST",
-      body: JSON.stringify({ email }),
-    });
-    setEmail("");
-    setMessage("Email salvo no back-end.");
-  }
-
-  const schedule = [
-    ["JavaScript moderno", "09:00", "Concluido"],
-    ["React e componentes", "14:00", "Em andamento"],
-    ["Node API", "19:30", "Planejado"],
-  ];
-
-  return (
-    <div className="grid min-h-[calc(100vh-130px)] items-center gap-8 py-8 lg:grid-cols-[minmax(0,1fr)_480px]">
-      <motion.section
-        animate={{ opacity: 1, x: 0 }}
-        initial={{ opacity: 0, x: -18 }}
-        transition={{ duration: 0.35 }}
-      >
-        <Badge variant="success">
-          <Sparkles size={13} />
-          Rotina conectada
-        </Badge>
-        <h1 className="mt-5 max-w-3xl text-4xl font-bold leading-tight text-zinc-50 sm:text-6xl">
-          Transforme seus estudos em progresso visivel.
-        </h1>
-        <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-400 sm:text-lg">
-          Organize blocos de foco, acompanhe sua evolucao e conecte sua rotina aos
-          outros modulos do NexaFlow.
-        </p>
-        <form className="mt-7 flex max-w-xl flex-col gap-2 sm:flex-row" onSubmit={submitLead}>
-          <div className="relative flex-1">
-            <Mail
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
-              size={17}
-            />
-            <Input
-              className="pl-9"
-              placeholder="seuemail@exemplo.com"
-              required
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-            />
-          </div>
-          <Button type="submit">
-            <Send size={17} />
-            Quero acompanhar
-          </Button>
-        </form>
-        {message && <p className="mt-3 text-sm font-medium text-emerald-300">{message}</p>}
-      </motion.section>
-
-      <motion.div
-        animate={{ opacity: 1, y: 0 }}
-        initial={{ opacity: 0, y: 18 }}
-        transition={{ delay: 0.08, duration: 0.4 }}
-      >
-        <Card className="overflow-hidden">
-          <CardHeader className="border-b border-zinc-800">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <CardTitle>Plano de hoje</CardTitle>
-                <CardDescription>Quinta-feira, 5 de junho</CardDescription>
-              </div>
-              <Badge variant="warning">82% foco</Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4 pt-5">
-            <div className="grid grid-cols-2 gap-3">
-              <MiniStat label="Blocos" value="3" />
-              <MiniStat label="Tempo focado" value="4h 20m" />
-            </div>
-            <div className="space-y-2">
-              {schedule.map(([title, time, status], index) => (
-                <motion.article
-                  animate={{ opacity: 1, x: 0 }}
-                  className="flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3"
-                  initial={{ opacity: 0, x: 12 }}
-                  key={title}
-                  transition={{ delay: 0.15 + index * 0.08 }}
-                >
-                  <div className="flex size-9 items-center justify-center rounded-md bg-emerald-400/10 text-emerald-300">
-                    <BookOpenCheck size={17} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-zinc-100">{title}</p>
-                    <p className="text-xs text-zinc-500">{status}</p>
-                  </div>
-                  <span className="text-sm font-medium text-zinc-400">{time}</span>
-                </motion.article>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-    </div>
-  );
-}
-
 function TasksApp() {
   const [tasks, setTasks] = useState([]);
   const [filter, setFilter] = useState("all");
@@ -1372,15 +1258,6 @@ function TooltipRow({ color, label, value }) {
         {label}
       </span>
       <strong className="font-semibold text-zinc-200">{currency.format(value)}</strong>
-    </div>
-  );
-}
-
-function MiniStat({ label, value }) {
-  return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-950/45 p-4">
-      <p className="text-xs font-medium text-zinc-500">{label}</p>
-      <p className="mt-2 text-xl font-bold text-zinc-100">{value}</p>
     </div>
   );
 }

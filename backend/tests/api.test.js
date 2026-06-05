@@ -133,11 +133,9 @@ describe("NexaFlow API", () => {
     await authenticated("delete", `/api/tasks/${created.body.id}`);
   });
 
-  it("captura um lead valido", async () => {
-    const leadEmail = `${testPrefix}-lead@example.com`;
-    const response = await authenticated("post", "/api/leads").send({ email: leadEmail });
+  it("nao expoe mais a antiga rota de leads", async () => {
+    const response = await authenticated("get", "/api/leads");
 
-    expect(response.status).toBe(201);
-    expect(response.body.email).toBe(leadEmail);
+    expect(response.status).toBe(404);
   });
 });

@@ -15,7 +15,6 @@ model User {
   createdAt    DateTime      @default(now())
   transactions Transaction[]
   tasks        Task[]
-  leads        Lead[]
 }
 
 model Transaction {
@@ -37,17 +36,6 @@ model Task {
   title     String
   priority  String   @default("media")
   done      Boolean  @default(false)
-  createdAt DateTime @default(now())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([createdAt])
-  @@index([userId, createdAt])
-}
-
-model Lead {
-  id        String   @id @default(cuid())
-  email     String
   createdAt DateTime @default(now())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
