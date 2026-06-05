@@ -35,7 +35,8 @@ Mostrar no GitHub um produto com separacao clara entre front-end e back-end, con
 - Estados vazios e skeletons de carregamento nos paineis.
 - Categorias financeiras padronizadas e seletor visual de entrada ou saida.
 - Cadastro e remocao de transacoes.
-- Taskly com criacao, conclusao, filtros e remocao de tarefas.
+- Taskly com criacao, prazos opcionais, conclusao, filtros e remocao de tarefas.
+- Sinalizacao visual e filtros para tarefas atrasadas, de hoje, proximas ou sem prazo.
 - Indicadores do Taskly com numeros destacados e aneis de progresso.
 - Cadastro, login, restauracao de sessao e logout.
 - Dados financeiros e tarefas isolados por usuario.
@@ -113,7 +114,7 @@ O arquivo `compose.yaml` executa a API Node e o PostgreSQL 17 em containers. O b
 O schema fica em `backend/prisma/schema.prisma` e possui:
 
 - `Transaction`: entradas e saidas financeiras.
-- `Task`: tarefas e prioridades do Taskly.
+- `Task`: tarefas, prioridades e prazos opcionais do Taskly.
 - `User`: contas, credenciais protegidas e relacionamento com os dados privados.
 
 Comandos uteis:

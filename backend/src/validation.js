@@ -24,6 +24,17 @@ const transactionCategory = z.enum([
   "Outros",
 ]);
 
+const optionalDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Informe a data no formato AAAA-MM-DD.")
+  .refine((value) => {
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+  }, "Informe uma data valida.")
+  .nullable()
+  .optional()
+  .default(null);
+
 export const registerSchema = z
   .object({
     email: z.string().trim().toLowerCase().email(),
@@ -50,6 +61,7 @@ export const transactionSchema = z
 
 export const taskSchema = z
   .object({
+    dueDate: optionalDate,
     priority: z.enum(["alta", "media", "baixa"]).default("media"),
     title: trimmedText(1, 160),
   })

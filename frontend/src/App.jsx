@@ -1,5 +1,14 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  differenceInCalendarDays,
+  format,
+  isBefore,
+  isToday,
+  parseISO,
+  startOfDay,
+} from "date-fns";
+import { ptBR } from "date-fns/locale";
+import {
   ArrowDownRight,
   ArrowUpRight,
   BarChart3,
@@ -1012,8 +1021,10 @@ function TransactionForm({ form, onSubmit, setForm }) {
 function TasksApp() {
   const [tasks, setTasks] = useState([]);
   const [filter, setFilter] = useState("all");
+  const [deadlineFilter, setDeadlineFilter] = useState("all");
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState("media");
+  const [dueDate, setDueDate] = useState("");
   const [loading, setLoading] = useState(true);
 
   async function loadTasks() {
@@ -1027,9 +1038,10 @@ function TasksApp() {
   }, []);
 
   const visibleTasks = tasks.filter((task) => {
-    if (filter === "pending") return !task.done;
-    if (filter === "done") return task.done;
-    return true;
+    const matchesStatus =
+      filter === "pending" ? !task.done : filter === "done" ? task.done : true;
+    const matchesDeadline = taskMatchesDeadline(task, deadlineFilter);
+    return matchesStatus && matchesDeadline;
   });
 
   const counters = {
@@ -1042,11 +1054,12 @@ function TasksApp() {
     event.preventDefault();
     const created = await api("/api/tasks", {
       method: "POST",
-      body: JSON.stringify({ title, priority }),
+      body: JSON.stringify({ title, priority, dueDate: dueDate || null }),
     });
     setTasks((current) => [created, ...current]);
     setTitle("");
     setPriority("media");
+    setDueDate("");
   }
 
   async function toggleTask(task) {
@@ -1065,7 +1078,7 @@ function TasksApp() {
   return (
     <div className="space-y-5">
       <PageHeading
-        description="Capture tarefas, escolha prioridades e acompanhe o que ja foi concluido."
+        description="Capture tarefas, defina prazos e acompanhe o que precisa de atencao."
         eyebrow="Organizador de tarefas"
         title="Taskly"
       />
@@ -1122,6 +1135,15 @@ function TasksApp() {
                 <option value="media">Prioridade media</option>
                 <option value="baixa">Prioridade baixa</option>
               </Select>
+              <label className="grid gap-1.5 text-xs font-medium text-zinc-400">
+                Prazo opcional
+                <Input
+                  aria-label="Prazo da tarefa"
+                  type="date"
+                  value={dueDate}
+                  onChange={(event) => setDueDate(event.target.value)}
+                />
+              </label>
               <Button type="submit">
                 <Plus size={17} />
                 Adicionar tarefa
@@ -1131,28 +1153,42 @@ function TasksApp() {
         </Card>
 
         <Card>
-          <CardHeader className="gap-4 border-b border-zinc-800 sm:flex-row sm:items-center sm:justify-between">
+          <CardHeader className="gap-4 border-b border-zinc-800 xl:flex-row xl:items-center xl:justify-between">
             <div>
               <CardTitle>Minhas tarefas</CardTitle>
               <CardDescription>{visibleTasks.length} itens neste filtro</CardDescription>
             </div>
-            <div className="grid grid-cols-3 rounded-lg border border-zinc-800 bg-zinc-950/40 p-1">
-              {[
-                ["all", "Todas"],
-                ["pending", "Pendentes"],
-                ["done", "Concluidas"],
-              ].map(([id, label]) => (
-                <Button
-                  className={cn(filter === id && "bg-zinc-700 text-zinc-50")}
-                  key={id}
-                  size="sm"
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setFilter(id)}
-                >
-                  {label}
-                </Button>
-              ))}
+            <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-3 rounded-lg border border-zinc-800 bg-zinc-950/40 p-1">
+                {[
+                  ["all", "Todas"],
+                  ["pending", "Pendentes"],
+                  ["done", "Concluidas"],
+                ].map(([id, label]) => (
+                  <Button
+                    className={cn(filter === id && "bg-zinc-700 text-zinc-50")}
+                    key={id}
+                    size="sm"
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setFilter(id)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+              <Select
+                aria-label="Filtrar por prazo"
+                className="w-full sm:w-44"
+                value={deadlineFilter}
+                onChange={(event) => setDeadlineFilter(event.target.value)}
+              >
+                <option value="all">Todos os prazos</option>
+                <option value="overdue">Atrasadas</option>
+                <option value="today">Vencem hoje</option>
+                <option value="upcoming">Proximas</option>
+                <option value="none">Sem prazo</option>
+              </Select>
             </div>
           </CardHeader>
           <CardContent className="p-3 sm:p-4">
@@ -1193,9 +1229,10 @@ function TasksApp() {
                       >
                         {task.title}
                       </p>
-                      <Badge className="mt-1" variant={priorityVariant(task.priority)}>
-                        {task.priority}
-                      </Badge>
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        <Badge variant={priorityVariant(task.priority)}>{task.priority}</Badge>
+                        <TaskDeadlineBadge task={task} />
+                      </div>
                     </div>
                     <Button
                       aria-label="Remover tarefa"
@@ -1214,6 +1251,17 @@ function TasksApp() {
         </Card>
       </div>
     </div>
+  );
+}
+
+function TaskDeadlineBadge({ task }) {
+  const deadline = taskDeadline(task);
+
+  return (
+    <Badge className="gap-1 normal-case" variant={deadline.variant}>
+      <CalendarDays size={12} />
+      {deadline.label}
+    </Badge>
   );
 }
 
@@ -1495,6 +1543,40 @@ function priorityVariant(priority) {
   if (priority === "alta") return "danger";
   if (priority === "media") return "warning";
   return "success";
+}
+
+function taskMatchesDeadline(task, filter) {
+  if (filter === "all") return true;
+  if (!task.dueDate) return filter === "none";
+
+  const dueDate = parseISO(task.dueDate);
+  const today = startOfDay(new Date());
+
+  if (filter === "overdue") return !task.done && isBefore(dueDate, today);
+  if (filter === "today") return isToday(dueDate);
+  if (filter === "upcoming") return !isBefore(dueDate, today) && !isToday(dueDate);
+  return false;
+}
+
+function taskDeadline(task) {
+  if (!task.dueDate) return { label: "Sem prazo", variant: "neutral" };
+
+  const dueDate = parseISO(task.dueDate);
+  const today = startOfDay(new Date());
+  const formattedDate = format(dueDate, "dd 'de' MMM", { locale: ptBR }).replace(".", "");
+  const daysUntilDue = differenceInCalendarDays(dueDate, today);
+
+  if (task.done) return { label: `Prazo ${formattedDate}`, variant: "neutral" };
+  if (isToday(dueDate)) return { label: "Vence hoje", variant: "warning" };
+  if (isBefore(dueDate, today)) {
+    const daysLate = Math.abs(daysUntilDue);
+    return {
+      label: `${daysLate} ${daysLate === 1 ? "dia" : "dias"} atrasada`,
+      variant: "danger",
+    };
+  }
+  if (daysUntilDue === 1) return { label: "Vence amanha", variant: "default" };
+  return { label: `Em ${daysUntilDue} dias - ${formattedDate}`, variant: "default" };
 }
 
 function compactCurrency(value) {

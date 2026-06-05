@@ -135,19 +135,37 @@ describe("NexaFlow API", () => {
     const created = await authenticated("post", "/api/tasks").send({
       title,
       priority: "alta",
+      dueDate: "2026-06-10",
     });
 
     expect(created.status).toBe(201);
-    expect(created.body).toMatchObject({ title, priority: "alta", done: false });
+    expect(created.body).toMatchObject({
+      title,
+      priority: "alta",
+      done: false,
+      dueDate: "2026-06-10",
+    });
 
     const updated = await authenticated("patch", `/api/tasks/${created.body.id}`).send({
       done: true,
     });
     expect(updated.status).toBe(200);
     expect(updated.body.done).toBe(true);
+    expect(updated.body.dueDate).toBe("2026-06-10");
 
     const removed = await authenticated("delete", `/api/tasks/${created.body.id}`);
     expect(removed.status).toBe(204);
+  });
+
+  it("rejeita prazo invalido ao criar uma tarefa", async () => {
+    const response = await authenticated("post", "/api/tasks").send({
+      title: `${testPrefix}-invalid-date`,
+      priority: "media",
+      dueDate: "2026-02-31",
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe("Dados invalidos.");
   });
 
   it("isola os dados entre usuarios", async () => {

@@ -3,6 +3,13 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
+function dueDateOffset(days) {
+  const date = new Date();
+  date.setUTCHours(0, 0, 0, 0);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date;
+}
+
 const transactions = [
   { id: "tx-1", description: "Salario", category: "Renda", type: "income", amount: 3200 },
   {
@@ -30,9 +37,27 @@ const transactions = [
 ];
 
 const tasks = [
-  { id: "task-1", title: "Criar README do projeto", priority: "alta", done: false },
-  { id: "task-2", title: "Publicar no GitHub", priority: "media", done: false },
-  { id: "task-3", title: "Revisar responsividade", priority: "baixa", done: true },
+  {
+    id: "task-1",
+    title: "Criar README do projeto",
+    priority: "alta",
+    done: false,
+    dueDate: dueDateOffset(-1),
+  },
+  {
+    id: "task-2",
+    title: "Publicar no GitHub",
+    priority: "media",
+    done: false,
+    dueDate: dueDateOffset(0),
+  },
+  {
+    id: "task-3",
+    title: "Revisar responsividade",
+    priority: "baixa",
+    done: true,
+    dueDate: dueDateOffset(3),
+  },
 ];
 
 async function main() {

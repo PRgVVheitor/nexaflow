@@ -32,14 +32,16 @@ model Transaction {
 }
 
 model Task {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   title     String
-  priority  String   @default("media")
-  done      Boolean  @default(false)
-  createdAt DateTime @default(now())
+  priority  String    @default("media")
+  done      Boolean   @default(false)
+  dueDate   DateTime? @db.Date
+  createdAt DateTime  @default(now())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([createdAt])
   @@index([userId, createdAt])
+  @@index([userId, dueDate])
 }

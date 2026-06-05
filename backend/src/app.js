@@ -51,6 +51,13 @@ function serializeTransaction(transaction) {
   return { ...transaction, amount: Number(transaction.amount) };
 }
 
+function serializeTask(task) {
+  return {
+    ...task,
+    dueDate: task.dueDate ? task.dueDate.toISOString().slice(0, 10) : null,
+  };
+}
+
 app.get(
   "/api/health",
   asyncRoute(async (req, res) => {
@@ -159,7 +166,7 @@ app.get(
       where: { userId: req.auth.userId },
       orderBy: { createdAt: "desc" },
     });
-    res.json(tasks);
+    res.json(tasks.map(serializeTask));
   }),
 );
 
@@ -168,11 +175,16 @@ app.post(
   requireAuth,
   validateBody(taskSchema),
   asyncRoute(async (req, res) => {
-    const { priority, title } = req.validatedBody;
+    const { dueDate, priority, title } = req.validatedBody;
     const task = await prisma.task.create({
-      data: { title, priority, userId: req.auth.userId },
+      data: {
+        title,
+        priority,
+        dueDate: dueDate ? new Date(`${dueDate}T00:00:00.000Z`) : null,
+        userId: req.auth.userId,
+      },
     });
-    res.status(201).json(task);
+    res.status(201).json(serializeTask(task));
   }),
 );
 
@@ -192,7 +204,7 @@ app.patch(
     }
 
     const task = await prisma.task.findUnique({ where: { id: req.params.id } });
-    res.json(task);
+    res.json(serializeTask(task));
   }),
 );
 

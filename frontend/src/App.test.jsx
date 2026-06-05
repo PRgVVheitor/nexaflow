@@ -3,6 +3,13 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
+const today = new Date();
+const todayDate = [
+  today.getFullYear(),
+  String(today.getMonth() + 1).padStart(2, "0"),
+  String(today.getDate()).padStart(2, "0"),
+].join("-");
+
 const defaultTransactions = [
   {
     id: "tx-test",
@@ -45,6 +52,7 @@ const responses = {
       title: "Publicar NexaFlow",
       priority: "alta",
       done: false,
+      dueDate: todayDate,
     },
   ],
 };
@@ -173,6 +181,9 @@ describe("NexaFlow", () => {
 
     expect(await screen.findByRole("heading", { level: 1, name: "Taskly" })).toBeInTheDocument();
     expect(await screen.findByText("Publicar NexaFlow")).toBeInTheDocument();
+    expect(screen.getByText("Vence hoje")).toBeInTheDocument();
+    expect(screen.getByLabelText("Prazo da tarefa")).toBeInTheDocument();
+    expect(screen.getByLabelText("Filtrar por prazo")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "100% pendentes" })).toBeInTheDocument();
   });
 });
