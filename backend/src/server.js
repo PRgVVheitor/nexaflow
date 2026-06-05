@@ -43,7 +43,7 @@ function normalizeAmount(value) {
 app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
-    service: "portfolio-fullstack-backend",
+    service: "nexaflow-api",
   });
 });
 
@@ -180,4 +180,3 @@ app.use((error, req, res, next) => {
 app.listen(port, () => {
   console.log(`API running on http://127.0.0.1:${port}`);
 });
-

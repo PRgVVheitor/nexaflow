@@ -51,11 +51,11 @@ function App() {
     <main className="app-shell">
       <header className="app-header">
         <div>
-          <p className="eyebrow">React + Node</p>
-          <h1>Portfolio fullstack</h1>
+          <p className="eyebrow">NexaFlow</p>
+          <h1>Financas, tarefas e rotina em um so painel.</h1>
           <p className="header-copy">
-            Uma evolucao dos projetos estaticos para uma aplicacao com frontend em
-            React, backend em Node e APIs reais.
+            Organize gastos, acompanhe tarefas e capture contatos em uma experiencia
+            conectada por uma API Node.
           </p>
         </div>
         <nav className="tab-bar" aria-label="Navegacao principal">
@@ -306,10 +306,10 @@ function LandingPage() {
     <section className="landing-view">
       <div className="landing-copy">
         <p className="eyebrow">Landing + API</p>
-        <h2>FocoFlow agora conectado ao Node.</h2>
+        <h2>NexaFlow tambem cuida da sua rotina de estudos.</h2>
         <p>
-          A landing page continua com cara de produto, mas o formulario envia leads
-          para o backend Express em vez de ficar so no navegador.
+          A area de estudos mostra a proposta do produto e envia contatos para o
+          backend Express em vez de ficar so no navegador.
         </p>
         <form className="lead-form" onSubmit={submitLead}>
           <input

@@ -1,5 +1,5 @@
 {
-  "name": "portfolio-fullstack-react-node",
+  "name": "nexaflow",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -10,4 +10,3 @@
     "start": "npm run start --prefix backend"
   }
 }
-

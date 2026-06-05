@@ -1,10 +1,10 @@
-# Portfolio Fullstack React + Node
+# NexaFlow
 
-Aplicacao full-stack que evolui os projetos da Semana 1 para uma arquitetura com frontend em React e backend em Node/Express.
+Aplicacao full-stack para centralizar financas, tarefas e rotina em um painel unico.
 
 ## Objetivo
 
-Mostrar no GitHub um projeto com separacao clara entre front-end e back-end, consumo de API, estado no React, rotas HTTP e persistencia simples em arquivo JSON.
+Mostrar no GitHub um produto com separacao clara entre front-end e back-end, consumo de API, estado no React, rotas HTTP e persistencia simples em arquivo JSON.
 
 ## Stack
 
@@ -54,4 +54,3 @@ URLs:
 - Criar autenticacao.
 - Adicionar testes automatizados.
 - Fazer deploy do front e do back.
-
