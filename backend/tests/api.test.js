@@ -86,7 +86,7 @@ describe("NexaFlow API", () => {
   it("rejeita tipos inesperados nos dados da API", async () => {
     const response = await authenticated("post", "/api/transactions").send({
       amount: 42,
-      category: "Testes",
+      category: "Outros",
       description: "Tipo invalido",
       type: "credit",
     });
@@ -97,11 +97,25 @@ describe("NexaFlow API", () => {
     );
   });
 
+  it("rejeita categorias financeiras fora da lista padronizada", async () => {
+    const response = await authenticated("post", "/api/transactions").send({
+      amount: 42,
+      category: "Categoria inventada",
+      description: "Categoria invalida",
+      type: "expense",
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.issues).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: "category" })]),
+    );
+  });
+
   it("cria, lista e remove uma transacao", async () => {
     const description = `${testPrefix}-transaction`;
     const created = await authenticated("post", "/api/transactions").send({
       description,
-      category: "Testes",
+      category: "Outros",
       type: "income",
       amount: 42.5,
     });

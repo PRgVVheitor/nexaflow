@@ -32,8 +32,11 @@ Mostrar no GitHub um produto com separacao clara entre front-end e back-end, con
 ## Funcionalidades
 
 - Dashboard financeiro responsivo com graficos, selecao e comparacao mensal.
+- Estados vazios e skeletons de carregamento nos paineis.
+- Categorias financeiras padronizadas e seletor visual de entrada ou saida.
 - Cadastro e remocao de transacoes.
 - Taskly com criacao, conclusao, filtros e remocao de tarefas.
+- Indicadores do Taskly com numeros destacados e aneis de progresso.
 - Cadastro, login, restauracao de sessao e logout.
 - Dados financeiros e tarefas isolados por usuario.
 - Senhas protegidas com bcrypt e sessoes assinadas com JWT.

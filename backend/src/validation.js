@@ -10,6 +10,20 @@ const password = z
     return length >= 8 && length <= 72;
   }, "A senha deve ter entre 8 e 72 caracteres.");
 
+const transactionCategory = z.enum([
+  "Alimentacao",
+  "Moradia",
+  "Transporte",
+  "Saude",
+  "Educacao",
+  "Lazer",
+  "Servicos",
+  "Renda",
+  "Freelance",
+  "Investimentos",
+  "Outros",
+]);
+
 export const registerSchema = z
   .object({
     email: z.string().trim().toLowerCase().email(),
@@ -28,7 +42,7 @@ export const loginSchema = z
 export const transactionSchema = z
   .object({
     amount: z.coerce.number().finite().positive().max(9999999999.99),
-    category: trimmedText(1, 60),
+    category: transactionCategory,
     description: trimmedText(1, 120),
     type: z.enum(["income", "expense"]),
   })

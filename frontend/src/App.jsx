@@ -76,6 +76,19 @@ const tabs = [
 ];
 
 const chartColors = ["#34d399", "#60a5fa", "#fbbf24", "#fb7185", "#a78bfa"];
+const transactionCategories = {
+  expense: [
+    "Alimentacao",
+    "Moradia",
+    "Transporte",
+    "Saude",
+    "Educacao",
+    "Lazer",
+    "Servicos",
+    "Outros",
+  ],
+  income: ["Renda", "Freelance", "Investimentos", "Outros"],
+};
 
 async function api(path, options = {}) {
   const token = localStorage.getItem(tokenKey);
@@ -529,6 +542,7 @@ function FinanceDashboard() {
     },
   ];
   const comparisonDelta = selectedMonthData.net - comparisonMonthData.net;
+  const hasFinancialActivity = filteredTransactions.length > 0;
 
   async function createTransaction(event) {
     event.preventDefault();
@@ -584,10 +598,12 @@ function FinanceDashboard() {
         title="Visao geral"
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {metrics.map((metric, index) => (
-          <MetricCard index={index} key={metric.title} {...metric} />
-        ))}
+      <div className="grid gap-3 sm:grid-cols-2 xl:sticky xl:top-2 xl:z-20 xl:grid-cols-4 xl:rounded-lg xl:bg-zinc-950/90 xl:py-2 xl:backdrop-blur">
+        {loading
+          ? Array.from({ length: 4 }, (_, index) => <MetricSkeleton key={index} />)
+          : metrics.map((metric, index) => (
+              <MetricCard index={index} key={metric.title} {...metric} />
+            ))}
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
@@ -595,6 +611,9 @@ function FinanceDashboard() {
           description="Comparativo consolidado do periodo"
           title="Entradas x saidas"
         >
+          {loading ? (
+            <ChartSkeleton />
+          ) : hasFinancialActivity ? (
           <ResponsiveContainer height="100%" width="100%">
             <BarChart
               data={[
@@ -615,13 +634,18 @@ function FinanceDashboard() {
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+          ) : (
+            <EmptyState text="Adicione transacoes para visualizar entradas e saidas." />
+          )}
         </ChartCard>
 
         <ChartCard
           description="Distribuicao das despesas por categoria"
           title="Gastos por categoria"
         >
-          {expenseByCategory.length ? (
+          {loading ? (
+            <ChartSkeleton variant="donut" />
+          ) : expenseByCategory.length ? (
             <ResponsiveContainer height="100%" width="100%">
               <PieChart>
                 <Pie
@@ -721,7 +745,11 @@ function FinanceDashboard() {
         }
         title={chartMode === "evolution" ? "Evolucao mensal do saldo" : "Comparacao mensal"}
       >
-        {chartMode === "evolution" ? (
+        {loading ? (
+          <ChartSkeleton />
+        ) : !hasFinancialActivity ? (
+          <EmptyState text="Adicione transacoes para visualizar sua evolucao mensal." />
+        ) : chartMode === "evolution" ? (
             <motion.div
               animate={{ opacity: 1 }}
               className="h-full"
@@ -825,9 +853,14 @@ function FinanceDashboard() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            {loading && <LoadingLabel />}
+            {loading && <TableSkeleton />}
             {error && <p className="p-5 text-sm text-red-300">{error}</p>}
-            {!loading && (
+            {!loading && !filteredTransactions.length && !error && (
+              <div className="p-5">
+                <EmptyState text="Nenhuma transacao encontrada para os filtros selecionados." />
+              </div>
+            )}
+            {!loading && filteredTransactions.length > 0 && (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -888,6 +921,16 @@ function FinanceDashboard() {
 }
 
 function TransactionForm({ form, onSubmit, setForm }) {
+  const categories = transactionCategories[form.type];
+
+  function selectType(type) {
+    setForm({
+      ...form,
+      category: transactionCategories[type].includes(form.category) ? form.category : "",
+      type,
+    });
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -897,18 +940,29 @@ function TransactionForm({ form, onSubmit, setForm }) {
       <CardContent>
         <form className="grid gap-3" onSubmit={onSubmit}>
           <Input
+            aria-label="Descricao"
             placeholder="Descricao"
             required
             value={form.description}
             onChange={(event) => setForm({ ...form, description: event.target.value })}
           />
-          <Input
-            placeholder="Categoria"
+          <Select
+            aria-label="Categoria"
             required
             value={form.category}
             onChange={(event) => setForm({ ...form, category: event.target.value })}
-          />
+          >
+            <option disabled value="">
+              Selecione uma categoria
+            </option>
+            {categories.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
+          </Select>
           <Input
+            aria-label="Valor"
             min="0.01"
             placeholder="Valor"
             required
@@ -917,13 +971,34 @@ function TransactionForm({ form, onSubmit, setForm }) {
             value={form.amount}
             onChange={(event) => setForm({ ...form, amount: event.target.value })}
           />
-          <Select
-            value={form.type}
-            onChange={(event) => setForm({ ...form, type: event.target.value })}
+          <div
+            aria-label="Tipo da transacao"
+            className="grid grid-cols-2 rounded-lg border border-zinc-800 bg-zinc-950/60 p-1"
+            role="group"
           >
-            <option value="expense">Saida</option>
-            <option value="income">Entrada</option>
-          </Select>
+            <Button
+              aria-pressed={form.type === "expense"}
+              className={cn(form.type === "expense" && "bg-rose-400/15 text-rose-300")}
+              size="sm"
+              type="button"
+              variant="ghost"
+              onClick={() => selectType("expense")}
+            >
+              <ArrowDownRight size={16} />
+              Saida
+            </Button>
+            <Button
+              aria-pressed={form.type === "income"}
+              className={cn(form.type === "income" && "bg-emerald-400/15 text-emerald-300")}
+              size="sm"
+              type="button"
+              variant="ghost"
+              onClick={() => selectType("income")}
+            >
+              <ArrowUpRight size={16} />
+              Entrada
+            </Button>
+          </div>
           <Button type="submit">
             <Plus size={17} />
             Adicionar transacao
@@ -996,30 +1071,36 @@ function TasksApp() {
       />
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <MetricCard
-          detail="Itens cadastrados"
-          icon={ClipboardList}
-          index={0}
-          title="Total"
-          tone="sky"
-          value={counters.total}
-        />
-        <MetricCard
-          detail="Aguardando acao"
-          icon={Target}
-          index={1}
-          title="Pendentes"
-          tone="amber"
-          value={counters.pending}
-        />
-        <MetricCard
-          detail="Progresso registrado"
-          icon={CheckCircle2}
-          index={2}
-          title="Concluidas"
-          tone="emerald"
-          value={counters.done}
-        />
+        {loading ? (
+          Array.from({ length: 3 }, (_, index) => <TaskStatSkeleton key={index} />)
+        ) : (
+          <>
+            <TaskStatCard
+              detail="Progresso geral"
+              index={0}
+              progress={counters.total ? (counters.done / counters.total) * 100 : 0}
+              title="Total"
+              tone="sky"
+              value={counters.total}
+            />
+            <TaskStatCard
+              detail="Aguardando acao"
+              index={1}
+              progress={counters.total ? (counters.pending / counters.total) * 100 : 0}
+              title="Pendentes"
+              tone="amber"
+              value={counters.pending}
+            />
+            <TaskStatCard
+              detail="Progresso registrado"
+              index={2}
+              progress={counters.total ? (counters.done / counters.total) * 100 : 0}
+              title="Concluidas"
+              tone="emerald"
+              value={counters.done}
+            />
+          </>
+        )}
       </div>
 
       <div className="grid items-start gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
@@ -1075,7 +1156,7 @@ function TasksApp() {
             </div>
           </CardHeader>
           <CardContent className="p-3 sm:p-4">
-            {loading && <LoadingLabel />}
+            {loading && <TaskListSkeleton />}
             {!loading && !visibleTasks.length && (
               <EmptyState text="Nenhuma tarefa encontrada neste filtro." />
             )}
@@ -1176,6 +1257,45 @@ function MetricCard({ detail, icon: Icon, index, title, tone, value }) {
   );
 }
 
+function TaskStatCard({ detail, index, progress, title, tone, value }) {
+  const tones = {
+    amber: { color: "#fbbf24", text: "text-amber-300" },
+    emerald: { color: "#34d399", text: "text-emerald-300" },
+    sky: { color: "#60a5fa", text: "text-sky-300" },
+  };
+  const selectedTone = tones[tone];
+  const roundedProgress = Math.round(progress);
+
+  return (
+    <motion.div
+      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, y: 14 }}
+      transition={{ delay: index * 0.06, duration: 0.32 }}
+    >
+      <Card className="h-full">
+        <CardContent className="flex items-center justify-between gap-4 p-4">
+          <div>
+            <p className="text-sm font-medium text-zinc-400">{title}</p>
+            <p className={cn("mt-1 text-4xl font-bold", selectedTone.text)}>{value}</p>
+            <p className="mt-1 text-xs text-zinc-500">{detail}</p>
+          </div>
+          <div
+            aria-label={`${roundedProgress}% ${title.toLowerCase()}`}
+            className="relative grid size-16 shrink-0 place-items-center rounded-full"
+            role="img"
+            style={{
+              background: `conic-gradient(${selectedTone.color} ${roundedProgress}%, #27272a 0)`,
+            }}
+          >
+            <div className="absolute inset-[6px] rounded-full bg-zinc-900" />
+            <span className="relative text-xs font-bold text-zinc-200">{roundedProgress}%</span>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+}
+
 function ChartCard({ actions, children, contentClassName, description, title }) {
   return (
     <Card>
@@ -1268,6 +1388,96 @@ function EmptyState({ text }) {
   return (
     <div className="flex h-full min-h-28 items-center justify-center rounded-lg border border-dashed border-zinc-700 p-5 text-center text-sm text-zinc-500">
       {text}
+    </div>
+  );
+}
+
+function MetricSkeleton() {
+  return (
+    <Card className="h-full">
+      <CardContent className="flex animate-pulse items-start justify-between gap-4 p-4">
+        <div className="w-full">
+          <div className="h-4 w-24 rounded bg-zinc-800" />
+          <div className="mt-3 h-7 w-36 rounded bg-zinc-800" />
+          <div className="mt-2 h-3 w-28 rounded bg-zinc-800/70" />
+        </div>
+        <div className="size-10 shrink-0 rounded-lg bg-zinc-800" />
+      </CardContent>
+    </Card>
+  );
+}
+
+function TaskStatSkeleton() {
+  return (
+    <Card className="h-full">
+      <CardContent className="flex animate-pulse items-center justify-between gap-4 p-4">
+        <div className="w-full">
+          <div className="h-4 w-20 rounded bg-zinc-800" />
+          <div className="mt-2 h-10 w-14 rounded bg-zinc-800" />
+          <div className="mt-2 h-3 w-28 rounded bg-zinc-800/70" />
+        </div>
+        <div className="size-16 shrink-0 rounded-full border-[6px] border-zinc-800" />
+      </CardContent>
+    </Card>
+  );
+}
+
+function ChartSkeleton({ variant = "chart" }) {
+  if (variant === "donut") {
+    return (
+      <div className="grid h-full animate-pulse place-items-center">
+        <div className="size-40 rounded-full border-[28px] border-zinc-800" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full animate-pulse items-end gap-3 border-b border-l border-zinc-800 p-5">
+      {[45, 72, 38, 88, 60, 76].map((height, index) => (
+        <div
+          className="flex-1 rounded-t bg-zinc-800"
+          key={index}
+          style={{ height: `${height}%` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function TableSkeleton() {
+  return (
+    <div aria-label="Carregando transacoes" className="animate-pulse p-5">
+      <div className="mb-4 h-4 w-40 rounded bg-zinc-800" />
+      <div className="space-y-3">
+        {Array.from({ length: 4 }, (_, index) => (
+          <div className="grid grid-cols-[1.4fr_1fr_1fr_100px] gap-3" key={index}>
+            <div className="h-9 rounded bg-zinc-800/80" />
+            <div className="h-9 rounded bg-zinc-800/60" />
+            <div className="h-9 rounded bg-zinc-800/60" />
+            <div className="h-9 rounded bg-zinc-800/80" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TaskListSkeleton() {
+  return (
+    <div aria-label="Carregando tarefas" className="animate-pulse space-y-2">
+      {Array.from({ length: 3 }, (_, index) => (
+        <div
+          className="grid grid-cols-[40px_minmax(0,1fr)_40px] items-center gap-3 rounded-lg border border-zinc-800 p-3"
+          key={index}
+        >
+          <div className="size-10 rounded-md bg-zinc-800" />
+          <div>
+            <div className="h-4 w-2/3 rounded bg-zinc-800" />
+            <div className="mt-2 h-5 w-20 rounded-full bg-zinc-800/70" />
+          </div>
+          <div className="size-10 rounded-md bg-zinc-800" />
+        </div>
+      ))}
     </div>
   );
 }

@@ -3,6 +3,25 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
+const defaultTransactions = [
+  {
+    id: "tx-test",
+    description: "Salario de teste",
+    category: "Renda",
+    type: "income",
+    amount: 5000,
+    createdAt: "2026-06-03T12:00:00.000Z",
+  },
+  {
+    id: "tx-previous-month",
+    description: "Aluguel de teste",
+    category: "Moradia",
+    type: "expense",
+    amount: 1200,
+    createdAt: "2026-05-03T12:00:00.000Z",
+  },
+];
+
 const responses = {
   "/api/auth/login": {
     token: "token-demo",
@@ -19,24 +38,7 @@ const responses = {
       email: "heitor@example.com",
     },
   },
-  "/api/transactions": [
-    {
-      id: "tx-test",
-      description: "Salario de teste",
-      category: "Renda",
-      type: "income",
-      amount: 5000,
-      createdAt: "2026-06-03T12:00:00.000Z",
-    },
-    {
-      id: "tx-previous-month",
-      description: "Aluguel de teste",
-      category: "Moradia",
-      type: "expense",
-      amount: 1200,
-      createdAt: "2026-05-03T12:00:00.000Z",
-    },
-  ],
+  "/api/transactions": defaultTransactions,
   "/api/tasks": [
     {
       id: "task-test",
@@ -49,6 +51,7 @@ const responses = {
 
 beforeEach(() => {
   localStorage.clear();
+  responses["/api/transactions"] = defaultTransactions;
   globalThis.fetch = vi.fn(async (url) => {
     const path = new URL(url).pathname;
     return {
@@ -130,6 +133,37 @@ describe("NexaFlow", () => {
     expect(screen.getByText("Diferenca de saldo entre os meses")).toBeInTheDocument();
   });
 
+  it("exibe um estado vazio em vez de graficos zerados", async () => {
+    responses["/api/transactions"] = [];
+    localStorage.setItem("nexaflow-token", "token-test");
+    render(<App />);
+
+    expect(
+      await screen.findByText("Adicione transacoes para visualizar sua evolucao mensal."),
+    ).toBeInTheDocument();
+  });
+
+  it("usa categorias predefinidas e toggle para o tipo da transacao", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("nexaflow-token", "token-test");
+    render(<App />);
+
+    const category = await screen.findByLabelText("Categoria");
+    expect(category).toHaveTextContent("Alimentacao");
+    expect(screen.getByRole("button", { name: "Saida" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Entrada" }));
+
+    expect(screen.getByRole("button", { name: "Entrada" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(category).toHaveTextContent("Freelance");
+  });
+
   it("navega para o Taskly e exibe as tarefas", async () => {
     const user = userEvent.setup();
     localStorage.setItem("nexaflow-token", "token-test");
@@ -139,5 +173,6 @@ describe("NexaFlow", () => {
 
     expect(await screen.findByRole("heading", { level: 1, name: "Taskly" })).toBeInTheDocument();
     expect(await screen.findByText("Publicar NexaFlow")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "100% pendentes" })).toBeInTheDocument();
   });
 });
