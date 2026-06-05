@@ -20,6 +20,7 @@ Mostrar no GitHub um produto com separacao clara entre front-end e back-end, con
 - Express
 - PostgreSQL
 - Prisma ORM
+- Docker Compose
 - JavaScript
 
 ## Funcionalidades
@@ -34,9 +35,9 @@ Mostrar no GitHub um produto com separacao clara entre front-end e back-end, con
 - Migration inicial e seed reproduzivel.
 - Blueprint do Render para criar API e banco.
 
-## Como rodar
+## Como rodar com Docker
 
-Instale as dependencias do backend:
+Tenha o Docker Desktop e o Node.js instalados. Instale as dependencias do backend:
 
 ```bash
 cd backend
@@ -51,7 +52,7 @@ npm install
 cd ..
 ```
 
-Crie `backend/.env` com base em `backend/.env.example` e informe sua conexao PostgreSQL:
+Crie `backend/.env` com base em `backend/.env.example`. A configuracao de exemplo ja aponta para o PostgreSQL do Docker:
 
 ```env
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nexaflow?schema=public"
@@ -61,21 +62,19 @@ CLIENT_ORIGIN="http://127.0.0.1:5173"
 
 Para apontar o frontend para outra API, crie `frontend/.env` com base em `frontend/.env.example`.
 
-Crie as tabelas e carregue os dados iniciais:
+Na primeira execucao, construa a API, suba a API e o PostgreSQL, aplique as migrations e carregue os dados demonstrativos:
 
 ```bash
-npm run db:generate
-npm run db:migrate
-npm run db:seed
+npm run db:bootstrap
 ```
 
-Rode o back-end:
+Nas proximas execucoes, basta subir a API e o banco:
 
 ```bash
-npm run dev:backend
+npm run docker:up
 ```
 
-Em outro terminal, rode o front-end:
+Depois rode o frontend:
 
 ```bash
 npm run dev:frontend
@@ -88,6 +87,8 @@ URLs:
 
 ## Banco de dados
 
+O arquivo `compose.yaml` executa a API Node e o PostgreSQL 17 em containers. O banco usa um volume persistente e continua salvo quando os containers sao desligados.
+
 O schema fica em `backend/prisma/schema.prisma` e possui:
 
 - `Transaction`: entradas e saidas financeiras.
@@ -97,11 +98,31 @@ O schema fica em `backend/prisma/schema.prisma` e possui:
 Comandos uteis:
 
 ```bash
+npm run docker:up
+npm run docker:up:db
+npm run docker:down
+npm run docker:logs
 npm run db:migrate
 npm run db:deploy
 npm run db:generate
 npm run db:seed
 npm run db:studio
+```
+
+Para apagar o volume e recriar o banco do zero:
+
+```bash
+npm run docker:reset
+npm run db:bootstrap
+```
+
+> `docker:reset` remove todos os dados locais do PostgreSQL.
+
+Para desenvolver o backend com recarregamento automatico, suba somente o PostgreSQL e execute o Node localmente:
+
+```bash
+npm run docker:up:db
+npm run dev:backend
 ```
 
 ## Deploy do backend
