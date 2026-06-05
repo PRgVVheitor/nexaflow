@@ -20,7 +20,7 @@ const currency = new Intl.NumberFormat("pt-BR", {
 const tabs = [
   { id: "finance", label: "Financas", icon: DollarSign },
   { id: "landing", label: "Landing", icon: BarChart3 },
-  { id: "tasks", label: "Tarefas", icon: ClipboardList },
+  { id: "tasks", label: "Taskly", icon: ClipboardList },
 ];
 
 async function api(path, options = {}) {
@@ -424,7 +424,7 @@ function TasksApp() {
 
       <div className="workspace-grid">
         <aside className="panel">
-          <p className="eyebrow">Node API</p>
+          <p className="eyebrow">Taskly / Node API</p>
           <h2>Nova tarefa</h2>
           <form className="form-stack" onSubmit={createTask}>
             <input
