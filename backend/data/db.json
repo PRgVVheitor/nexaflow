@@ -1,0 +1,60 @@
+{
+  "transactions": [
+    {
+      "id": "tx-1",
+      "description": "Salario",
+      "category": "Renda",
+      "type": "income",
+      "amount": 3200
+    },
+    {
+      "id": "tx-2",
+      "description": "Freelance landing page",
+      "category": "Renda",
+      "type": "income",
+      "amount": 850
+    },
+    {
+      "id": "tx-3",
+      "description": "Aluguel",
+      "category": "Moradia",
+      "type": "expense",
+      "amount": 1100
+    },
+    {
+      "id": "tx-4",
+      "description": "Mercado",
+      "category": "Alimentacao",
+      "type": "expense",
+      "amount": 540
+    },
+    {
+      "id": "tx-5",
+      "description": "Internet",
+      "category": "Servicos",
+      "type": "expense",
+      "amount": 120
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-1",
+      "title": "Criar README do projeto",
+      "priority": "alta",
+      "done": false
+    },
+    {
+      "id": "task-2",
+      "title": "Publicar no GitHub",
+      "priority": "media",
+      "done": false
+    },
+    {
+      "id": "task-3",
+      "title": "Revisar responsividade",
+      "priority": "baixa",
+      "done": true
+    }
+  ],
+  "leads": []
+}
