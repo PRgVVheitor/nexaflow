@@ -24,16 +24,13 @@ const transactionCategory = z.enum([
   "Outros",
 ]);
 
-const optionalDate = z
+const dateOnly = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Informe a data no formato AAAA-MM-DD.")
   .refine((value) => {
     const date = new Date(`${value}T00:00:00.000Z`);
     return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
-  }, "Informe uma data valida.")
-  .nullable()
-  .optional()
-  .default(null);
+  }, "Informe uma data valida.");
 
 export const registerSchema = z
   .object({
@@ -61,7 +58,7 @@ export const transactionSchema = z
 
 export const taskSchema = z
   .object({
-    dueDate: optionalDate,
+    dueDate: dateOnly.nullable().optional().default(null),
     priority: z.enum(["alta", "media", "baixa"]).default("media"),
     title: trimmedText(1, 160),
   })
@@ -69,9 +66,13 @@ export const taskSchema = z
 
 export const taskUpdateSchema = z
   .object({
-    done: z.boolean(),
+    done: z.boolean().optional(),
+    dueDate: dateOnly.nullable().optional(),
+    priority: z.enum(["alta", "media", "baixa"]).optional(),
+    title: trimmedText(1, 160).optional(),
   })
-  .strict();
+  .strict()
+  .refine((data) => Object.keys(data).length > 0, "Informe ao menos um campo para atualizar.");
 
 export function validateBody(schema) {
   return (req, res, next) => {

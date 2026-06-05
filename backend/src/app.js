@@ -193,8 +193,13 @@ app.patch(
   requireAuth,
   validateBody(taskUpdateSchema),
   asyncRoute(async (req, res) => {
+    const data = { ...req.validatedBody };
+    if ("dueDate" in data) {
+      data.dueDate = data.dueDate ? new Date(`${data.dueDate}T00:00:00.000Z`) : null;
+    }
+
     const result = await prisma.task.updateMany({
-      data: { done: req.validatedBody.done },
+      data,
       where: { id: req.params.id, userId: req.auth.userId },
     });
 

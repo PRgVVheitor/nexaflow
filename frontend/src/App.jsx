@@ -22,7 +22,9 @@ import {
   Loader2,
   LogIn,
   LogOut,
+  Pencil,
   Plus,
+  Save,
   Search,
   ShieldCheck,
   Sparkles,
@@ -30,15 +32,16 @@ import {
   Trash2,
   UserPlus,
   WalletCards,
+  X,
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
-  Line,
-  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -749,10 +752,10 @@ function FinanceDashboard() {
         contentClassName="h-80"
         description={
           chartMode === "evolution"
-            ? "Passe o mouse para ver os detalhes e clique em um ponto para selecionar o mes."
+            ? "A onda mostra o ritmo do saldo. Clique em um ponto para selecionar o mes."
             : "Compare entradas, saidas e saldo entre dois meses."
         }
-        title={chartMode === "evolution" ? "Evolucao mensal do saldo" : "Comparacao mensal"}
+        title={chartMode === "evolution" ? "Fluxo mensal do saldo" : "Comparacao mensal"}
       >
         {loading ? (
           <ChartSkeleton />
@@ -765,13 +768,21 @@ function FinanceDashboard() {
               initial={{ opacity: 0 }}
               key="evolution"
             >
-              <ResponsiveContainer height="100%" width="100%">
-                <LineChart data={monthlyData}>
+              <div aria-label="Grafico de onda do saldo mensal" className="h-full" role="img">
+                <ResponsiveContainer height="100%" width="100%">
+                <AreaChart data={monthlyData}>
+                  <defs>
+                    <linearGradient id="balanceWave" x1="0" x2="0" y1="0" y2="1">
+                      <stop offset="0%" stopColor="#34d399" stopOpacity={0.42} />
+                      <stop offset="55%" stopColor="#34d399" stopOpacity={0.12} />
+                      <stop offset="100%" stopColor="#34d399" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid stroke="#27272a" strokeDasharray="4 4" vertical={false} />
                   <XAxis axisLine={false} dataKey="label" tickLine={false} />
                   <YAxis axisLine={false} tickFormatter={compactCurrency} tickLine={false} />
                   <Tooltip content={<MonthlyTooltip />} cursor={{ stroke: "#3f3f46" }} />
-                  <Line
+                  <Area
                     activeDot={{ fill: "#6ee7b7", r: 6, stroke: "#09090b", strokeWidth: 3 }}
                     dataKey="balance"
                     dot={(props) => (
@@ -781,13 +792,17 @@ function FinanceDashboard() {
                         selected={props.payload.key === selectedMonth}
                       />
                     )}
+                    fill="url(#balanceWave)"
                     name="Saldo acumulado"
                     stroke="#34d399"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                     strokeWidth={3}
-                    type="monotone"
+                    type="natural"
                   />
-                </LineChart>
-              </ResponsiveContainer>
+                </AreaChart>
+                </ResponsiveContainer>
+              </div>
             </motion.div>
           ) : (
             <motion.div
@@ -1025,6 +1040,7 @@ function TasksApp() {
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState("media");
   const [dueDate, setDueDate] = useState("");
+  const [editingTask, setEditingTask] = useState(null);
   const [loading, setLoading] = useState(true);
 
   async function loadTasks() {
@@ -1070,9 +1086,33 @@ function TasksApp() {
     setTasks((current) => current.map((item) => (item.id === updated.id ? updated : item)));
   }
 
+  function startEditingTask(task) {
+    setEditingTask({
+      id: task.id,
+      title: task.title,
+      priority: task.priority,
+      dueDate: task.dueDate || "",
+    });
+  }
+
+  async function saveTask(event) {
+    event.preventDefault();
+    const updated = await api(`/api/tasks/${editingTask.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        title: editingTask.title,
+        priority: editingTask.priority,
+        dueDate: editingTask.dueDate || null,
+      }),
+    });
+    setTasks((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+    setEditingTask(null);
+  }
+
   async function deleteTask(id) {
     await api(`/api/tasks/${id}`, { method: "DELETE" });
     setTasks((current) => current.filter((item) => item.id !== id));
+    if (editingTask?.id === id) setEditingTask(null);
   }
 
   return (
@@ -1220,29 +1260,109 @@ function TasksApp() {
                     >
                       <CheckCircle2 size={17} />
                     </Button>
-                    <div className="min-w-0">
-                      <p
-                        className={cn(
-                          "truncate text-sm font-semibold text-zinc-100",
-                          task.done && "text-zinc-500 line-through",
-                        )}
+                    {editingTask?.id === task.id ? (
+                      <form
+                        className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_135px_150px]"
+                        id={`edit-task-${task.id}`}
+                        onSubmit={saveTask}
                       >
-                        {task.title}
-                      </p>
-                      <div className="mt-1 flex flex-wrap gap-1.5">
-                        <Badge variant={priorityVariant(task.priority)}>{task.priority}</Badge>
-                        <TaskDeadlineBadge task={task} />
+                        <Input
+                          aria-label="Editar titulo da tarefa"
+                          required
+                          value={editingTask.title}
+                          onChange={(event) =>
+                            setEditingTask((current) => ({
+                              ...current,
+                              title: event.target.value,
+                            }))
+                          }
+                        />
+                        <Select
+                          aria-label="Editar prioridade da tarefa"
+                          value={editingTask.priority}
+                          onChange={(event) =>
+                            setEditingTask((current) => ({
+                              ...current,
+                              priority: event.target.value,
+                            }))
+                          }
+                        >
+                          <option value="alta">Alta</option>
+                          <option value="media">Media</option>
+                          <option value="baixa">Baixa</option>
+                        </Select>
+                        <Input
+                          aria-label="Editar prazo da tarefa"
+                          type="date"
+                          value={editingTask.dueDate}
+                          onChange={(event) =>
+                            setEditingTask((current) => ({
+                              ...current,
+                              dueDate: event.target.value,
+                            }))
+                          }
+                        />
+                      </form>
+                    ) : (
+                      <div className="min-w-0">
+                        <p
+                          className={cn(
+                            "truncate text-sm font-semibold text-zinc-100",
+                            task.done && "text-zinc-500 line-through",
+                          )}
+                        >
+                          {task.title}
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          <Badge variant={priorityVariant(task.priority)}>{task.priority}</Badge>
+                          <TaskDeadlineBadge task={task} />
+                        </div>
                       </div>
+                    )}
+                    <div className="flex gap-1">
+                      {editingTask?.id === task.id ? (
+                        <>
+                          <Button
+                            aria-label="Salvar tarefa"
+                            form={`edit-task-${task.id}`}
+                            size="icon"
+                            type="submit"
+                          >
+                            <Save size={16} />
+                          </Button>
+                          <Button
+                            aria-label="Cancelar edicao"
+                            size="icon"
+                            type="button"
+                            variant="ghost"
+                            onClick={() => setEditingTask(null)}
+                          >
+                            <X size={17} />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            aria-label="Editar tarefa"
+                            size="icon"
+                            type="button"
+                            variant="ghost"
+                            onClick={() => startEditingTask(task)}
+                          >
+                            <Pencil size={16} />
+                          </Button>
+                          <Button
+                            aria-label="Remover tarefa"
+                            size="icon"
+                            type="button"
+                            variant="destructive"
+                            onClick={() => deleteTask(task.id)}
+                          >
+                            <Trash2 size={16} />
+                          </Button>
+                        </>
+                      )}
                     </div>
-                    <Button
-                      aria-label="Remover tarefa"
-                      size="icon"
-                      type="button"
-                      variant="destructive"
-                      onClick={() => deleteTask(task.id)}
-                    >
-                      <Trash2 size={16} />
-                    </Button>
                   </motion.article>
                 ))}
               </AnimatePresence>

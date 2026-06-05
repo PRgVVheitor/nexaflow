@@ -130,7 +130,7 @@ describe("NexaFlow API", () => {
     expect(removed.status).toBe(204);
   });
 
-  it("cria, conclui e remove uma tarefa", async () => {
+  it("cria, edita, conclui e remove uma tarefa", async () => {
     const title = `${testPrefix}-task`;
     const created = await authenticated("post", "/api/tasks").send({
       title,
@@ -146,12 +146,25 @@ describe("NexaFlow API", () => {
       dueDate: "2026-06-10",
     });
 
+    const edited = await authenticated("patch", `/api/tasks/${created.body.id}`).send({
+      title: `${title}-editada`,
+      priority: "baixa",
+      dueDate: "2026-06-12",
+    });
+    expect(edited.status).toBe(200);
+    expect(edited.body).toMatchObject({
+      title: `${title}-editada`,
+      priority: "baixa",
+      dueDate: "2026-06-12",
+      done: false,
+    });
+
     const updated = await authenticated("patch", `/api/tasks/${created.body.id}`).send({
       done: true,
     });
     expect(updated.status).toBe(200);
     expect(updated.body.done).toBe(true);
-    expect(updated.body.dueDate).toBe("2026-06-10");
+    expect(updated.body.dueDate).toBe("2026-06-12");
 
     const removed = await authenticated("delete", `/api/tasks/${created.body.id}`);
     expect(removed.status).toBe(204);

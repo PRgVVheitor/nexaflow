@@ -29,6 +29,16 @@ const defaultTransactions = [
   },
 ];
 
+const defaultTasks = [
+  {
+    id: "task-test",
+    title: "Publicar NexaFlow",
+    priority: "alta",
+    done: false,
+    dueDate: todayDate,
+  },
+];
+
 const responses = {
   "/api/auth/login": {
     token: "token-demo",
@@ -46,20 +56,14 @@ const responses = {
     },
   },
   "/api/transactions": defaultTransactions,
-  "/api/tasks": [
-    {
-      id: "task-test",
-      title: "Publicar NexaFlow",
-      priority: "alta",
-      done: false,
-      dueDate: todayDate,
-    },
-  ],
+  "/api/tasks": defaultTasks,
 };
 
 beforeEach(() => {
   localStorage.clear();
   responses["/api/transactions"] = defaultTransactions;
+  responses["/api/tasks"] = defaultTasks;
+  delete responses["/api/tasks/task-test"];
   globalThis.fetch = vi.fn(async (url) => {
     const path = new URL(url).pathname;
     return {
@@ -123,6 +127,7 @@ describe("NexaFlow", () => {
     expect(await screen.findByText("Heitor Teste")).toBeInTheDocument();
     expect(screen.queryByTitle("Estudos")).not.toBeInTheDocument();
     expect(await screen.findByText("Salario de teste")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Grafico de onda do saldo mensal" })).toBeInTheDocument();
     expect(globalThis.fetch).toHaveBeenCalledWith(
       "http://127.0.0.1:3001/api/transactions",
       expect.any(Object),
@@ -185,5 +190,40 @@ describe("NexaFlow", () => {
     expect(screen.getByLabelText("Prazo da tarefa")).toBeInTheDocument();
     expect(screen.getByLabelText("Filtrar por prazo")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "100% pendentes" })).toBeInTheDocument();
+  });
+
+  it("permite editar titulo, prioridade e prazo de uma tarefa", async () => {
+    const user = userEvent.setup();
+    responses["/api/tasks/task-test"] = {
+      ...defaultTasks[0],
+      title: "Publicar versao final",
+      priority: "baixa",
+      dueDate: null,
+    };
+    localStorage.setItem("nexaflow-token", "token-test");
+    render(<App />);
+
+    await user.click(await screen.findByTitle("Taskly"));
+    await user.click(await screen.findByRole("button", { name: "Editar tarefa" }));
+
+    const title = screen.getByLabelText("Editar titulo da tarefa");
+    await user.clear(title);
+    await user.type(title, "Publicar versao final");
+    await user.selectOptions(screen.getByLabelText("Editar prioridade da tarefa"), "baixa");
+    await user.clear(screen.getByLabelText("Editar prazo da tarefa"));
+    await user.click(screen.getByRole("button", { name: "Salvar tarefa" }));
+
+    expect(await screen.findByText("Publicar versao final")).toBeInTheDocument();
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "http://127.0.0.1:3001/api/tasks/task-test",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          title: "Publicar versao final",
+          priority: "baixa",
+          dueDate: null,
+        }),
+      }),
+    );
   });
 });
