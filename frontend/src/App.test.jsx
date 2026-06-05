@@ -26,6 +26,15 @@ const responses = {
       category: "Renda",
       type: "income",
       amount: 5000,
+      createdAt: "2026-06-03T12:00:00.000Z",
+    },
+    {
+      id: "tx-previous-month",
+      description: "Aluguel de teste",
+      category: "Moradia",
+      type: "expense",
+      amount: 1200,
+      createdAt: "2026-05-03T12:00:00.000Z",
     },
   ],
   "/api/tasks": [
@@ -87,6 +96,18 @@ describe("NexaFlow", () => {
       "http://127.0.0.1:3001/api/transactions",
       expect.any(Object),
     );
+  });
+
+  it("permite comparar dois meses no painel financeiro", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("nexaflow-token", "token-test");
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Comparar meses" }));
+
+    expect(screen.getByLabelText("Mes principal")).toBeInTheDocument();
+    expect(screen.getByLabelText("Mes para comparar")).toBeInTheDocument();
+    expect(screen.getByText("Diferenca de saldo entre os meses")).toBeInTheDocument();
   });
 
   it("navega para o Taskly e exibe as tarefas", async () => {

@@ -4,11 +4,13 @@ import {
   ArrowUpRight,
   BarChart3,
   BookOpenCheck,
+  CalendarDays,
   CheckCircle2,
   ClipboardList,
   DollarSign,
   Eye,
   EyeOff,
+  GitCompareArrows,
   Loader2,
   LogIn,
   LogOut,
@@ -62,6 +64,13 @@ const tokenKey = "nexaflow-token";
 const currency = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
+});
+const shortMonth = new Intl.DateTimeFormat("pt-BR", {
+  month: "short",
+});
+const longMonth = new Intl.DateTimeFormat("pt-BR", {
+  month: "long",
+  year: "numeric",
 });
 
 const tabs = [
@@ -391,6 +400,11 @@ function FinanceDashboard() {
   const [transactions, setTransactions] = useState([]);
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [chartMode, setChartMode] = useState("evolution");
+  const [selectedMonth, setSelectedMonth] = useState(() => monthKey(new Date()));
+  const [comparisonMonth, setComparisonMonth] = useState(() =>
+    shiftMonth(monthKey(new Date()), -1),
+  );
   const [form, setForm] = useState({
     description: "",
     category: "",
@@ -459,13 +473,65 @@ function FinanceDashboard() {
     return Object.entries(grouped).map(([name, value]) => ({ name, value }));
   }, [filteredTransactions]);
 
-  const balanceTrend = useMemo(() => {
+  const monthlyData = useMemo(() => {
+    const endMonth = monthKey(new Date());
+    const months = Array.from({ length: 6 }, (_, index) =>
+      shiftMonth(endMonth, index - 5),
+    );
+    const grouped = Object.fromEntries(
+      months.map((key) => [
+        key,
+        {
+          expense: 0,
+          income: 0,
+          key,
+          label: formatMonth(key, shortMonth),
+          fullLabel: formatMonth(key, longMonth),
+        },
+      ]),
+    );
+
+    filteredTransactions.forEach((item) => {
+      const key = monthKey(item.createdAt ? new Date(item.createdAt) : new Date());
+      if (!grouped[key]) return;
+      grouped[key][item.type === "income" ? "income" : "expense"] += item.amount;
+    });
+
     let balance = 0;
-    return [...filteredTransactions].reverse().map((item, index) => {
-      balance += item.type === "income" ? item.amount : -item.amount;
-      return { name: `Mov. ${index + 1}`, saldo: balance };
+    return months.map((key) => {
+      const month = grouped[key];
+      const net = month.income - month.expense;
+      balance += net;
+      return { ...month, balance, net };
     });
   }, [filteredTransactions]);
+
+  useEffect(() => {
+    if (selectedMonth === comparisonMonth) {
+      const alternative = monthlyData.find((item) => item.key !== selectedMonth);
+      if (alternative) setComparisonMonth(alternative.key);
+    }
+  }, [comparisonMonth, monthlyData, selectedMonth]);
+
+  const selectedMonthData =
+    monthlyData.find((item) => item.key === selectedMonth) || monthlyData.at(-1);
+  const comparisonMonthData =
+    monthlyData.find((item) => item.key === comparisonMonth) || monthlyData.at(-2);
+  const comparisonData = [
+    {
+      name: selectedMonthData.label,
+      Entradas: selectedMonthData.income,
+      Saidas: selectedMonthData.expense,
+      Saldo: selectedMonthData.net,
+    },
+    {
+      name: comparisonMonthData.label,
+      Entradas: comparisonMonthData.income,
+      Saidas: comparisonMonthData.expense,
+      Saldo: comparisonMonthData.net,
+    },
+  ];
+  const comparisonDelta = selectedMonthData.net - comparisonMonthData.net;
 
   async function createTransaction(event) {
     event.preventDefault();
@@ -583,27 +649,145 @@ function FinanceDashboard() {
       </div>
 
       <ChartCard
-        description="Saldo acumulado a cada movimentacao cadastrada"
-        title="Evolucao do saldo"
+        actions={
+          <div className="grid gap-2 sm:min-w-[430px]">
+            <div
+              aria-label="Modo do grafico financeiro"
+              className="grid grid-cols-2 rounded-md border border-zinc-800 bg-zinc-950/60 p-1"
+              role="group"
+            >
+              <Button
+                className="min-h-8 h-8"
+                size="sm"
+                type="button"
+                variant={chartMode === "evolution" ? "secondary" : "ghost"}
+                onClick={() => setChartMode("evolution")}
+              >
+                <CalendarDays size={15} />
+                Evolucao
+              </Button>
+              <Button
+                className="min-h-8 h-8"
+                size="sm"
+                type="button"
+                variant={chartMode === "comparison" ? "secondary" : "ghost"}
+                onClick={() => setChartMode("comparison")}
+              >
+                <GitCompareArrows size={15} />
+                Comparar meses
+              </Button>
+            </div>
+
+            <div className={cn("grid gap-2", chartMode === "comparison" && "grid-cols-2")}>
+              <Select
+                aria-label="Mes principal"
+                value={selectedMonth}
+                onChange={(event) => setSelectedMonth(event.target.value)}
+              >
+                {monthlyData
+                  .slice()
+                  .reverse()
+                  .map((month) => (
+                    <option key={month.key} value={month.key}>
+                      {capitalize(month.fullLabel)}
+                    </option>
+                  ))}
+              </Select>
+              {chartMode === "comparison" && (
+                <Select
+                  aria-label="Mes para comparar"
+                  value={comparisonMonth}
+                  onChange={(event) => setComparisonMonth(event.target.value)}
+                >
+                  {monthlyData
+                    .slice()
+                    .reverse()
+                    .map((month) => (
+                      <option
+                        disabled={month.key === selectedMonth}
+                        key={month.key}
+                        value={month.key}
+                      >
+                        {capitalize(month.fullLabel)}
+                      </option>
+                    ))}
+                </Select>
+              )}
+            </div>
+          </div>
+        }
+        contentClassName="h-80"
+        description={
+          chartMode === "evolution"
+            ? "Passe o mouse para ver os detalhes e clique em um ponto para selecionar o mes."
+            : "Compare entradas, saidas e saldo entre dois meses."
+        }
+        title={chartMode === "evolution" ? "Evolucao mensal do saldo" : "Comparacao mensal"}
       >
-        {balanceTrend.length ? (
-          <ResponsiveContainer height="100%" width="100%">
-            <LineChart data={balanceTrend}>
-              <CartesianGrid stroke="#27272a" strokeDasharray="4 4" vertical={false} />
-              <XAxis axisLine={false} dataKey="name" tickLine={false} />
-              <YAxis axisLine={false} tickFormatter={compactCurrency} tickLine={false} />
-              <Tooltip formatter={(value) => currency.format(value)} />
-              <Line
-                dataKey="saldo"
-                dot={{ fill: "#34d399", r: 3 }}
-                stroke="#34d399"
-                strokeWidth={3}
-                type="monotone"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        ) : (
-          <EmptyState text="Cadastre movimentacoes para visualizar a evolucao." />
+        {chartMode === "evolution" ? (
+            <motion.div
+              animate={{ opacity: 1 }}
+              className="h-full"
+              initial={{ opacity: 0 }}
+              key="evolution"
+            >
+              <ResponsiveContainer height="100%" width="100%">
+                <LineChart data={monthlyData}>
+                  <CartesianGrid stroke="#27272a" strokeDasharray="4 4" vertical={false} />
+                  <XAxis axisLine={false} dataKey="label" tickLine={false} />
+                  <YAxis axisLine={false} tickFormatter={compactCurrency} tickLine={false} />
+                  <Tooltip content={<MonthlyTooltip />} cursor={{ stroke: "#3f3f46" }} />
+                  <Line
+                    activeDot={{ fill: "#6ee7b7", r: 6, stroke: "#09090b", strokeWidth: 3 }}
+                    dataKey="balance"
+                    dot={(props) => (
+                      <MonthDot
+                        {...props}
+                        onSelect={setSelectedMonth}
+                        selected={props.payload.key === selectedMonth}
+                      />
+                    )}
+                    name="Saldo acumulado"
+                    stroke="#34d399"
+                    strokeWidth={3}
+                    type="monotone"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </motion.div>
+          ) : (
+            <motion.div
+              animate={{ opacity: 1, y: 0 }}
+              className="flex h-full flex-col gap-3"
+              initial={{ opacity: 0, y: 6 }}
+              key="comparison"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-zinc-800 bg-zinc-950/45 px-3 py-2 text-sm">
+                <span className="text-zinc-400">
+                  Diferenca de saldo entre os meses
+                </span>
+                <strong className={comparisonDelta >= 0 ? "text-emerald-300" : "text-rose-300"}>
+                  {comparisonDelta >= 0 ? "+" : ""}
+                  {currency.format(comparisonDelta)}
+                </strong>
+              </div>
+              <div className="min-h-0 flex-1">
+                <ResponsiveContainer height="100%" width="100%">
+                  <BarChart data={comparisonData}>
+                    <CartesianGrid stroke="#27272a" strokeDasharray="4 4" vertical={false} />
+                    <XAxis axisLine={false} dataKey="name" tickLine={false} />
+                    <YAxis axisLine={false} tickFormatter={compactCurrency} tickLine={false} />
+                    <Tooltip
+                      content={<ComparisonTooltip />}
+                      cursor={{ fill: "#27272a", opacity: 0.35 }}
+                    />
+                    <Bar dataKey="Entradas" fill="#34d399" radius={[5, 5, 0, 0]} />
+                    <Bar dataKey="Saidas" fill="#fb7185" radius={[5, 5, 0, 0]} />
+                    <Bar dataKey="Saldo" fill="#60a5fa" radius={[5, 5, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </motion.div>
         )}
       </ChartCard>
 
@@ -1104,15 +1288,91 @@ function MetricCard({ detail, icon: Icon, index, title, tone, value }) {
   );
 }
 
-function ChartCard({ children, description, title }) {
+function ChartCard({ actions, children, contentClassName, description, title }) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+      <CardHeader className={cn(actions && "gap-4 lg:flex-row lg:items-end lg:justify-between")}>
+        <div>
+          <CardTitle>{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
+        </div>
+        {actions}
       </CardHeader>
-      <CardContent className="h-72">{children}</CardContent>
+      <CardContent className={cn("h-72", contentClassName)}>{children}</CardContent>
     </Card>
+  );
+}
+
+function MonthDot({ cx, cy, onSelect, payload, selected }) {
+  return (
+    <circle
+      aria-label={`Selecionar ${payload.fullLabel}`}
+      className="cursor-pointer"
+      cx={cx}
+      cy={cy}
+      fill={selected ? "#a7f3d0" : "#34d399"}
+      r={selected ? 6 : 4}
+      role="button"
+      stroke="#09090b"
+      strokeWidth={selected ? 3 : 2}
+      tabIndex={0}
+      onClick={() => onSelect(payload.key)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") onSelect(payload.key);
+      }}
+    />
+  );
+}
+
+function MonthlyTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  const month = payload[0].payload;
+
+  return (
+    <div className="min-w-48 rounded-md border border-zinc-700 bg-zinc-950/95 p-3 shadow-xl shadow-black/30">
+      <p className="font-semibold text-zinc-100">{capitalize(month.fullLabel)}</p>
+      <div className="mt-2 grid gap-1.5 text-xs">
+        <TooltipRow color="#34d399" label="Entradas" value={month.income} />
+        <TooltipRow color="#fb7185" label="Saidas" value={month.expense} />
+        <TooltipRow color="#60a5fa" label="Saldo do mes" value={month.net} />
+        <TooltipRow color="#a7f3d0" label="Saldo acumulado" value={month.balance} />
+      </div>
+      <p className="mt-2 border-t border-zinc-800 pt-2 text-[11px] text-zinc-500">
+        Clique no ponto para selecionar o mes
+      </p>
+    </div>
+  );
+}
+
+function ComparisonTooltip({ active, label, payload }) {
+  if (!active || !payload?.length) return null;
+
+  return (
+    <div className="min-w-44 rounded-md border border-zinc-700 bg-zinc-950/95 p-3 shadow-xl shadow-black/30">
+      <p className="font-semibold capitalize text-zinc-100">{label}</p>
+      <div className="mt-2 grid gap-1.5 text-xs">
+        {payload.map((item) => (
+          <TooltipRow
+            color={item.color}
+            key={item.dataKey}
+            label={item.dataKey}
+            value={item.value}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TooltipRow({ color, label, value }) {
+  return (
+    <div className="flex items-center justify-between gap-5 text-zinc-400">
+      <span className="flex items-center gap-2">
+        <span className="size-2 rounded-full" style={{ backgroundColor: color }} />
+        {label}
+      </span>
+      <strong className="font-semibold text-zinc-200">{currency.format(value)}</strong>
+    </div>
   );
 }
 
@@ -1154,6 +1414,24 @@ function compactCurrency(value) {
     style: "currency",
     currency: "BRL",
   }).format(value);
+}
+
+function monthKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function shiftMonth(key, offset) {
+  const [year, month] = key.split("-").map(Number);
+  return monthKey(new Date(year, month - 1 + offset, 1));
+}
+
+function formatMonth(key, formatter) {
+  const [year, month] = key.split("-").map(Number);
+  return formatter.format(new Date(year, month - 1, 1)).replace(".", "");
+}
+
+function capitalize(value) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 export default App;
