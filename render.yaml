@@ -10,9 +10,8 @@ services:
     runtime: node
     plan: free
     rootDir: backend
-    buildCommand: npm install && npm run prisma:generate
-    preDeployCommand: npm run db:deploy
-    initialDeployHook: npm run db:seed
+    buildCommand: npm ci && npm run prisma:generate
+    preDeployCommand: npm run db:deploy && npm run db:seed
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:

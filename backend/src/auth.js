@@ -1,16 +1,6 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-
-const localSecret = "nexaflow-local-development-secret-change-me";
-const jwtSecret = process.env.JWT_SECRET || (process.env.NODE_ENV === "production" ? null : localSecret);
-
-function getJwtSecret() {
-  if (!jwtSecret) {
-    throw new Error("JWT_SECRET precisa ser configurado em producao.");
-  }
-
-  return jwtSecret;
-}
+import { env } from "./env.js";
 
 export function publicUser(user) {
   return {
@@ -23,7 +13,7 @@ export function publicUser(user) {
 export function createToken(user) {
   return jwt.sign(
     { email: user.email, name: user.name },
-    getJwtSecret(),
+    env.JWT_SECRET,
     { expiresIn: "7d", subject: user.id },
   );
 }
@@ -46,7 +36,7 @@ export function requireAuth(req, res, next) {
   }
 
   try {
-    const payload = jwt.verify(token, getJwtSecret());
+    const payload = jwt.verify(token, env.JWT_SECRET);
     req.auth = { userId: payload.sub };
     next();
   } catch {

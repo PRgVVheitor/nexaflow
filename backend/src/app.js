@@ -1,7 +1,8 @@
-import "dotenv/config";
 import { Prisma } from "@prisma/client";
 import cors from "cors";
 import express from "express";
+import rateLimit from "express-rate-limit";
+import { ZodError } from "zod";
 import {
   createToken,
   hashPassword,
@@ -10,39 +11,40 @@ import {
   verifyPassword,
 } from "./auth.js";
 import { prisma } from "./db.js";
+import { env } from "./env.js";
+import {
+  loginSchema,
+  registerSchema,
+  taskSchema,
+  taskUpdateSchema,
+  transactionSchema,
+  validateBody,
+} from "./validation.js";
 
-const clientOrigin = process.env.CLIENT_ORIGIN || "*";
 export const app = express();
 
-app.use(cors({ origin: clientOrigin }));
-app.use(express.json());
+app.disable("x-powered-by");
+if (env.NODE_ENV === "production") app.set("trust proxy", 1);
+app.use(cors({ origin: env.CLIENT_ORIGIN }));
+app.use(express.json({ limit: "16kb" }));
+
+const authLimiter = rateLimit({
+  handler: (req, res) => {
+    res.status(429).json({
+      message: "Muitas tentativas de autenticacao. Tente novamente em alguns minutos.",
+    });
+  },
+  legacyHeaders: false,
+  limit: 10,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  windowMs: 15 * 60 * 1000,
+});
 
 function asyncRoute(handler) {
   return (req, res, next) => {
     Promise.resolve(handler(req, res, next)).catch(next);
   };
-}
-
-function normalizeText(value) {
-  return String(value || "").trim();
-}
-
-function normalizeAmount(value) {
-  const amount = Number(value);
-  return Number.isFinite(amount) && amount > 0 ? amount : null;
-}
-
-function normalizeEmail(value) {
-  return normalizeText(value).toLowerCase();
-}
-
-function isValidEmail(email) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function isValidPassword(password) {
-  const length = Buffer.byteLength(password, "utf8");
-  return length >= 8 && length <= 72;
 }
 
 function serializeTransaction(transaction) {
@@ -59,43 +61,28 @@ app.get(
 
 app.post(
   "/api/auth/register",
+  authLimiter,
+  validateBody(registerSchema),
   asyncRoute(async (req, res) => {
-    const name = normalizeText(req.body.name);
-    const email = normalizeEmail(req.body.email);
-    const password = String(req.body.password || "");
+    const { email, name, password } = req.validatedBody;
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        passwordHash: await hashPassword(password),
+      },
+    });
 
-    if (name.length < 2 || !isValidEmail(email) || !isValidPassword(password)) {
-      res.status(400).json({
-        message: "Informe nome, email valido e senha entre 8 e 72 caracteres.",
-      });
-      return;
-    }
-
-    try {
-      const user = await prisma.user.create({
-        data: {
-          name,
-          email,
-          passwordHash: await hashPassword(password),
-        },
-      });
-
-      res.status(201).json({ token: createToken(user), user: publicUser(user) });
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-        res.status(409).json({ message: "Este email ja esta cadastrado." });
-        return;
-      }
-      throw error;
-    }
+    res.status(201).json({ token: createToken(user), user: publicUser(user) });
   }),
 );
 
 app.post(
   "/api/auth/login",
+  authLimiter,
+  validateBody(loginSchema),
   asyncRoute(async (req, res) => {
-    const email = normalizeEmail(req.body.email);
-    const password = String(req.body.password || "");
+    const { email, password } = req.validatedBody;
     const user = await prisma.user.findUnique({ where: { email } });
 
     if (!user || !(await verifyPassword(password, user.passwordHash))) {
@@ -137,17 +124,9 @@ app.get(
 app.post(
   "/api/transactions",
   requireAuth,
+  validateBody(transactionSchema),
   asyncRoute(async (req, res) => {
-    const description = normalizeText(req.body.description);
-    const category = normalizeText(req.body.category);
-    const type = req.body.type === "income" ? "income" : "expense";
-    const amount = normalizeAmount(req.body.amount);
-
-    if (!description || !category || !amount) {
-      res.status(400).json({ message: "Descricao, categoria e valor sao obrigatorios." });
-      return;
-    }
-
+    const { amount, category, description, type } = req.validatedBody;
     const transaction = await prisma.transaction.create({
       data: { description, category, type, amount, userId: req.auth.userId },
     });
@@ -187,16 +166,9 @@ app.get(
 app.post(
   "/api/tasks",
   requireAuth,
+  validateBody(taskSchema),
   asyncRoute(async (req, res) => {
-    const title = normalizeText(req.body.title);
-    const priorities = ["alta", "media", "baixa"];
-    const priority = priorities.includes(req.body.priority) ? req.body.priority : "media";
-
-    if (!title) {
-      res.status(400).json({ message: "Titulo da tarefa e obrigatorio." });
-      return;
-    }
-
+    const { priority, title } = req.validatedBody;
     const task = await prisma.task.create({
       data: { title, priority, userId: req.auth.userId },
     });
@@ -207,9 +179,10 @@ app.post(
 app.patch(
   "/api/tasks/:id",
   requireAuth,
+  validateBody(taskUpdateSchema),
   asyncRoute(async (req, res) => {
     const result = await prisma.task.updateMany({
-      data: { done: Boolean(req.body.done) },
+      data: { done: req.validatedBody.done },
       where: { id: req.params.id, userId: req.auth.userId },
     });
 
@@ -240,13 +213,53 @@ app.delete(
   }),
 );
 
+app.use((req, res) => {
+  res.status(404).json({ message: "Rota nao encontrada." });
+});
+
 app.use((error, req, res, next) => {
-  console.error(error);
+  if (res.headersSent) {
+    next(error);
+    return;
+  }
+
+  if (error instanceof ZodError) {
+    res.status(400).json({
+      issues: error.issues.map((issue) => ({
+        field: issue.path.join("."),
+        message: issue.message,
+      })),
+      message: "Dados invalidos.",
+    });
+    return;
+  }
+
+  if (error instanceof SyntaxError && error.status === 400 && "body" in error) {
+    res.status(400).json({ message: "JSON invalido." });
+    return;
+  }
 
   if (error instanceof Prisma.PrismaClientInitializationError) {
     res.status(503).json({ message: "Banco de dados indisponivel." });
     return;
   }
 
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === "P2002") {
+      const target = String(error.meta?.target || "");
+      res.status(409).json({
+        message: target.includes("email")
+          ? "Este email ja esta cadastrado."
+          : "Este registro ja existe.",
+      });
+      return;
+    }
+    if (error.code === "P2025") {
+      res.status(404).json({ message: "Registro nao encontrado." });
+      return;
+    }
+  }
+
+  console.error(error);
   res.status(500).json({ message: "Erro interno no servidor." });
 });

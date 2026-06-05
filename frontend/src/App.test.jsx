@@ -86,6 +86,25 @@ describe("NexaFlow", () => {
     expect(localStorage.getItem("nexaflow-token")).toBe("token-demo");
   });
 
+  it("envia somente email e senha no login", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.type(screen.getByPlaceholderText("seuemail@exemplo.com"), "heitor@example.com");
+    await user.type(screen.getByPlaceholderText("Senha"), "senha-segura-123");
+    await user.click(screen.getByRole("button", { name: "Entrar" }));
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "http://127.0.0.1:3001/api/auth/login",
+      expect.objectContaining({
+        body: JSON.stringify({
+          email: "heitor@example.com",
+          password: "senha-segura-123",
+        }),
+      }),
+    );
+  });
+
   it("carrega o painel financeiro com dados da API", async () => {
     localStorage.setItem("nexaflow-token", "token-test");
     render(<App />);

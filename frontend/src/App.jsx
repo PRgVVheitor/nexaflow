@@ -225,7 +225,9 @@ function AuthScreen({ onAuthenticated }) {
     try {
       const response = await api(`/api/auth/${mode}`, {
         method: "POST",
-        body: JSON.stringify(form),
+        body: JSON.stringify(
+          isRegister ? form : { email: form.email, password: form.password },
+        ),
       });
       onAuthenticated(response);
     } catch (requestError) {

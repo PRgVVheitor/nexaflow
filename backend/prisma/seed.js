@@ -36,32 +36,42 @@ const tasks = [
 ];
 
 async function main() {
-  await prisma.$transaction([
-    prisma.task.deleteMany(),
-    prisma.transaction.deleteMany(),
-    prisma.user.deleteMany(),
-  ]);
-
-  const demoUser = await prisma.user.create({
-    data: {
+  const passwordHash = await bcrypt.hash("demo1234", 12);
+  const demoUser = await prisma.user.upsert({
+    where: { email: "demo@nexaflow.app" },
+    update: {
+      name: "Usuario Demo",
+      passwordHash,
+    },
+    create: {
       id: "demo-user",
       name: "Usuario Demo",
       email: "demo@nexaflow.app",
-      passwordHash: await bcrypt.hash("demo1234", 12),
+      passwordHash,
     },
   });
 
-  await prisma.transaction.createMany({
-    data: transactions.map((transaction) => ({ ...transaction, userId: demoUser.id })),
-  });
-  await prisma.task.createMany({
-    data: tasks.map((task) => ({ ...task, userId: demoUser.id })),
-  });
+  await prisma.$transaction([
+    ...transactions.map((transaction) =>
+      prisma.transaction.upsert({
+        where: { id: transaction.id },
+        update: { ...transaction, userId: demoUser.id },
+        create: { ...transaction, userId: demoUser.id },
+      }),
+    ),
+    ...tasks.map((task) =>
+      prisma.task.upsert({
+        where: { id: task.id },
+        update: { ...task, userId: demoUser.id },
+        create: { ...task, userId: demoUser.id },
+      }),
+    ),
+  ]);
 }
 
 main()
   .then(async () => {
-    console.log("Banco populado com os dados iniciais do NexaFlow.");
+    console.log("Dados demonstrativos do NexaFlow sincronizados sem apagar registros.");
     await prisma.$disconnect();
   })
   .catch(async (error) => {

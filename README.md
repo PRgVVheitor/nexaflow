@@ -37,6 +37,9 @@ Mostrar no GitHub um produto com separacao clara entre front-end e back-end, con
 - Cadastro, login, restauracao de sessao e logout.
 - Dados financeiros e tarefas isolados por usuario.
 - Senhas protegidas com bcrypt e sessoes assinadas com JWT.
+- Rate limiting nas rotas de login e cadastro.
+- Validacao de entradas e variaveis de ambiente com Zod.
+- Respostas de erro padronizadas na API.
 - Componentes reutilizaveis: Card, Button, Input, Badge, Table e Select.
 - Animacoes e transicoes com Framer Motion.
 - Persistencia em PostgreSQL com Prisma ORM.
@@ -60,13 +63,14 @@ npm install
 cd ..
 ```
 
-Crie `backend/.env` com base em `backend/.env.example`. A configuracao de exemplo ja aponta para o PostgreSQL do Docker:
+Crie `backend/.env` com base em `backend/.env.example`. A configuracao de exemplo ja aponta para o PostgreSQL do Docker. Em producao, `CLIENT_ORIGIN` e obrigatoria e `JWT_SECRET` precisa ter pelo menos 32 caracteres:
 
 ```env
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nexaflow?schema=public"
 PORT=3001
 CLIENT_ORIGIN="http://127.0.0.1:5173"
-JWT_SECRET="troque-por-uma-chave-longa-e-aleatoria"
+JWT_SECRET="troque-por-uma-chave-com-pelo-menos-32-caracteres"
+NODE_ENV="development"
 ```
 
 Para apontar o frontend para outra API, crie `frontend/.env` com base em `frontend/.env.example`.
@@ -141,7 +145,7 @@ npm run dev:backend
 
 ## Deploy do backend
 
-O arquivo `render.yaml` cria uma API Node e um PostgreSQL no Render, aplica as migrations em cada deploy e carrega o seed demonstrativo no primeiro deploy. Durante o deploy, configure `CLIENT_ORIGIN` com a URL publicada do frontend.
+O arquivo `render.yaml` cria uma API Node e um PostgreSQL no Render, aplica as migrations e sincroniza o seed demonstrativo em cada deploy. O seed usa `upsert`: garante os dados de demonstracao sem apagar contas, tarefas ou transacoes existentes. Durante o deploy, configure `CLIENT_ORIGIN` com a URL publicada do frontend.
 
 ## Testes e integracao continua
 

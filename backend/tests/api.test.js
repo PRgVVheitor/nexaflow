@@ -2,6 +2,7 @@ import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { app } from "../src/app.js";
 import { prisma } from "../src/db.js";
+import { envSchema } from "../src/env.js";
 
 const testPrefix = `ci-${Date.now()}`;
 const email = `${testPrefix}@example.com`;
@@ -57,6 +58,17 @@ describe("NexaFlow API", () => {
     expect(response.body.token).toEqual(expect.any(String));
   });
 
+  it("padroniza conflitos de email no middleware central", async () => {
+    const response = await request(app).post("/api/auth/register").send({
+      name: "Usuario Duplicado",
+      email,
+      password,
+    });
+
+    expect(response.status).toBe(409);
+    expect(response.body.message).toBe("Este email ja esta cadastrado.");
+  });
+
   it("protege os dados sem uma sessao valida", async () => {
     const response = await request(app).get("/api/transactions");
 
@@ -67,7 +79,22 @@ describe("NexaFlow API", () => {
     const response = await authenticated("post", "/api/transactions").send({});
 
     expect(response.status).toBe(400);
-    expect(response.body.message).toBe("Descricao, categoria e valor sao obrigatorios.");
+    expect(response.body.message).toBe("Dados invalidos.");
+    expect(response.body.issues).toEqual(expect.any(Array));
+  });
+
+  it("rejeita tipos inesperados nos dados da API", async () => {
+    const response = await authenticated("post", "/api/transactions").send({
+      amount: 42,
+      category: "Testes",
+      description: "Tipo invalido",
+      type: "credit",
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.issues).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: "type" })]),
+    );
   });
 
   it("cria, lista e remove uma transacao", async () => {
@@ -137,5 +164,29 @@ describe("NexaFlow API", () => {
     const response = await authenticated("get", "/api/leads");
 
     expect(response.status).toBe(404);
+    expect(response.body.message).toBe("Rota nao encontrada.");
+  });
+
+  it("exige configuracao segura para iniciar em producao", () => {
+    const result = envSchema.safeParse({
+      DATABASE_URL: "postgresql://localhost/nexaflow",
+      NODE_ENV: "production",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("limita tentativas repetidas de autenticacao", async () => {
+    let response;
+
+    for (let attempt = 0; attempt < 11; attempt += 1) {
+      response = await request(app).post("/api/auth/login").send({
+        email: "inexistente@example.com",
+        password: "senha-incorreta",
+      });
+    }
+
+    expect(response.status).toBe(429);
+    expect(response.body.message).toContain("Muitas tentativas");
   });
 });
