@@ -1,29 +1,20 @@
+import "dotenv/config";
+import { Prisma } from "@prisma/client";
 import cors from "cors";
 import express from "express";
-import { randomUUID } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { prisma } from "./db.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const dataDir = path.join(__dirname, "..", "data");
-const dbPath = path.join(dataDir, "db.json");
 const port = process.env.PORT || 3001;
-
+const clientOrigin = process.env.CLIENT_ORIGIN || "*";
 const app = express();
 
-app.use(cors());
+app.use(cors({ origin: clientOrigin }));
 app.use(express.json());
 
-async function readDatabase() {
-  const file = await readFile(dbPath, "utf-8");
-  return JSON.parse(file);
-}
-
-async function writeDatabase(data) {
-  await mkdir(dataDir, { recursive: true });
-  await writeFile(dbPath, JSON.stringify(data, null, 2));
+function asyncRoute(handler) {
+  return (req, res, next) => {
+    Promise.resolve(handler(req, res, next)).catch(next);
+  };
 }
 
 function normalizeText(value) {
@@ -32,151 +23,173 @@ function normalizeText(value) {
 
 function normalizeAmount(value) {
   const amount = Number(value);
-
-  if (!Number.isFinite(amount) || amount <= 0) {
-    return null;
-  }
-
-  return amount;
+  return Number.isFinite(amount) && amount > 0 ? amount : null;
 }
 
-app.get("/api/health", (req, res) => {
-  res.json({
-    status: "ok",
-    service: "nexaflow-api",
-  });
-});
+function serializeTransaction(transaction) {
+  return { ...transaction, amount: Number(transaction.amount) };
+}
 
-app.get("/api/transactions", async (req, res) => {
-  const db = await readDatabase();
-  res.json(db.transactions);
-});
+function isMissingRecord(error) {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025";
+}
 
-app.post("/api/transactions", async (req, res) => {
-  const db = await readDatabase();
-  const description = normalizeText(req.body.description);
-  const category = normalizeText(req.body.category);
-  const type = req.body.type === "income" ? "income" : "expense";
-  const amount = normalizeAmount(req.body.amount);
+app.get(
+  "/api/health",
+  asyncRoute(async (req, res) => {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: "ok", service: "nexaflow-api", database: "postgresql" });
+  }),
+);
 
-  if (!description || !category || !amount) {
-    res.status(400).json({ message: "Descricao, categoria e valor sao obrigatorios." });
-    return;
-  }
+app.get(
+  "/api/transactions",
+  asyncRoute(async (req, res) => {
+    const transactions = await prisma.transaction.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+    res.json(transactions.map(serializeTransaction));
+  }),
+);
 
-  const transaction = {
-    id: randomUUID(),
-    description,
-    category,
-    type,
-    amount,
-  };
+app.post(
+  "/api/transactions",
+  asyncRoute(async (req, res) => {
+    const description = normalizeText(req.body.description);
+    const category = normalizeText(req.body.category);
+    const type = req.body.type === "income" ? "income" : "expense";
+    const amount = normalizeAmount(req.body.amount);
 
-  db.transactions = [transaction, ...db.transactions];
-  await writeDatabase(db);
-  res.status(201).json(transaction);
-});
+    if (!description || !category || !amount) {
+      res.status(400).json({ message: "Descricao, categoria e valor sao obrigatorios." });
+      return;
+    }
 
-app.delete("/api/transactions/:id", async (req, res) => {
-  const db = await readDatabase();
-  const nextTransactions = db.transactions.filter((item) => item.id !== req.params.id);
+    const transaction = await prisma.transaction.create({
+      data: { description, category, type, amount },
+    });
+    res.status(201).json(serializeTransaction(transaction));
+  }),
+);
 
-  if (nextTransactions.length === db.transactions.length) {
-    res.status(404).json({ message: "Transacao nao encontrada." });
-    return;
-  }
+app.delete(
+  "/api/transactions/:id",
+  asyncRoute(async (req, res) => {
+    try {
+      await prisma.transaction.delete({ where: { id: req.params.id } });
+      res.status(204).end();
+    } catch (error) {
+      if (isMissingRecord(error)) {
+        res.status(404).json({ message: "Transacao nao encontrada." });
+        return;
+      }
+      throw error;
+    }
+  }),
+);
 
-  db.transactions = nextTransactions;
-  await writeDatabase(db);
-  res.status(204).end();
-});
+app.get(
+  "/api/tasks",
+  asyncRoute(async (req, res) => {
+    const tasks = await prisma.task.findMany({ orderBy: { createdAt: "desc" } });
+    res.json(tasks);
+  }),
+);
 
-app.get("/api/tasks", async (req, res) => {
-  const db = await readDatabase();
-  res.json(db.tasks);
-});
+app.post(
+  "/api/tasks",
+  asyncRoute(async (req, res) => {
+    const title = normalizeText(req.body.title);
+    const priorities = ["alta", "media", "baixa"];
+    const priority = priorities.includes(req.body.priority) ? req.body.priority : "media";
 
-app.post("/api/tasks", async (req, res) => {
-  const db = await readDatabase();
-  const title = normalizeText(req.body.title);
-  const priorities = ["alta", "media", "baixa"];
-  const priority = priorities.includes(req.body.priority) ? req.body.priority : "media";
+    if (!title) {
+      res.status(400).json({ message: "Titulo da tarefa e obrigatorio." });
+      return;
+    }
 
-  if (!title) {
-    res.status(400).json({ message: "Titulo da tarefa e obrigatorio." });
-    return;
-  }
+    const task = await prisma.task.create({ data: { title, priority } });
+    res.status(201).json(task);
+  }),
+);
 
-  const task = {
-    id: randomUUID(),
-    title,
-    priority,
-    done: false,
-  };
+app.patch(
+  "/api/tasks/:id",
+  asyncRoute(async (req, res) => {
+    try {
+      const task = await prisma.task.update({
+        data: { done: Boolean(req.body.done) },
+        where: { id: req.params.id },
+      });
+      res.json(task);
+    } catch (error) {
+      if (isMissingRecord(error)) {
+        res.status(404).json({ message: "Tarefa nao encontrada." });
+        return;
+      }
+      throw error;
+    }
+  }),
+);
 
-  db.tasks = [task, ...db.tasks];
-  await writeDatabase(db);
-  res.status(201).json(task);
-});
+app.delete(
+  "/api/tasks/:id",
+  asyncRoute(async (req, res) => {
+    try {
+      await prisma.task.delete({ where: { id: req.params.id } });
+      res.status(204).end();
+    } catch (error) {
+      if (isMissingRecord(error)) {
+        res.status(404).json({ message: "Tarefa nao encontrada." });
+        return;
+      }
+      throw error;
+    }
+  }),
+);
 
-app.patch("/api/tasks/:id", async (req, res) => {
-  const db = await readDatabase();
-  const task = db.tasks.find((item) => item.id === req.params.id);
+app.get(
+  "/api/leads",
+  asyncRoute(async (req, res) => {
+    const leads = await prisma.lead.findMany({ orderBy: { createdAt: "desc" } });
+    res.json(leads);
+  }),
+);
 
-  if (!task) {
-    res.status(404).json({ message: "Tarefa nao encontrada." });
-    return;
-  }
+app.post(
+  "/api/leads",
+  asyncRoute(async (req, res) => {
+    const email = normalizeText(req.body.email).toLowerCase();
 
-  task.done = Boolean(req.body.done);
-  await writeDatabase(db);
-  res.json(task);
-});
+    if (!email || !email.includes("@")) {
+      res.status(400).json({ message: "Email invalido." });
+      return;
+    }
 
-app.delete("/api/tasks/:id", async (req, res) => {
-  const db = await readDatabase();
-  const nextTasks = db.tasks.filter((item) => item.id !== req.params.id);
-
-  if (nextTasks.length === db.tasks.length) {
-    res.status(404).json({ message: "Tarefa nao encontrada." });
-    return;
-  }
-
-  db.tasks = nextTasks;
-  await writeDatabase(db);
-  res.status(204).end();
-});
-
-app.get("/api/leads", async (req, res) => {
-  const db = await readDatabase();
-  res.json(db.leads);
-});
-
-app.post("/api/leads", async (req, res) => {
-  const db = await readDatabase();
-  const email = normalizeText(req.body.email).toLowerCase();
-
-  if (!email || !email.includes("@")) {
-    res.status(400).json({ message: "Email invalido." });
-    return;
-  }
-
-  const lead = {
-    id: randomUUID(),
-    email,
-    createdAt: new Date().toISOString(),
-  };
-
-  db.leads = [lead, ...db.leads];
-  await writeDatabase(db);
-  res.status(201).json(lead);
-});
+    const lead = await prisma.lead.create({ data: { email } });
+    res.status(201).json(lead);
+  }),
+);
 
 app.use((error, req, res, next) => {
   console.error(error);
+
+  if (error instanceof Prisma.PrismaClientInitializationError) {
+    res.status(503).json({ message: "Banco de dados indisponivel." });
+    return;
+  }
+
   res.status(500).json({ message: "Erro interno no servidor." });
 });
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log(`API running on http://127.0.0.1:${port}`);
 });
+
+async function shutdown() {
+  await prisma.$disconnect();
+  server.close(() => process.exit(0));
+}
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
