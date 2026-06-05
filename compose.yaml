@@ -25,6 +25,7 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/nexaflow?schema=public
       PORT: 3001
       CLIENT_ORIGIN: http://127.0.0.1:5173
+      JWT_SECRET: nexaflow-docker-local-secret-change-me
       NODE_ENV: production
     ports:
       - "3001:3001"

@@ -22,5 +22,7 @@ services:
           property: connectionString
       - key: CLIENT_ORIGIN
         sync: false
+      - key: JWT_SECRET
+        generateValue: true
       - key: NODE_ENV
         value: production

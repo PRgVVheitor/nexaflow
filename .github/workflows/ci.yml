@@ -25,6 +25,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nexaflow?schema=public
+      JWT_SECRET: nexaflow-ci-secret
 
     steps:
       - name: Checkout

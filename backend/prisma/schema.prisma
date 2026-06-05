@@ -7,6 +7,17 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  passwordHash String
+  createdAt    DateTime      @default(now())
+  transactions Transaction[]
+  tasks        Task[]
+  leads        Lead[]
+}
+
 model Transaction {
   id          String   @id @default(cuid())
   description String
@@ -14,8 +25,11 @@ model Transaction {
   type        String
   amount      Decimal  @db.Decimal(12, 2)
   createdAt   DateTime @default(now())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([createdAt])
+  @@index([userId, createdAt])
 }
 
 model Task {
@@ -24,14 +38,20 @@ model Task {
   priority  String   @default("media")
   done      Boolean  @default(false)
   createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([createdAt])
+  @@index([userId, createdAt])
 }
 
 model Lead {
   id        String   @id @default(cuid())
   email     String
   createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([createdAt])
+  @@index([userId, createdAt])
 }

@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
@@ -39,10 +40,24 @@ async function main() {
     prisma.lead.deleteMany(),
     prisma.task.deleteMany(),
     prisma.transaction.deleteMany(),
+    prisma.user.deleteMany(),
   ]);
 
-  await prisma.transaction.createMany({ data: transactions });
-  await prisma.task.createMany({ data: tasks });
+  const demoUser = await prisma.user.create({
+    data: {
+      id: "demo-user",
+      name: "Usuario Demo",
+      email: "demo@nexaflow.app",
+      passwordHash: await bcrypt.hash("demo1234", 12),
+    },
+  });
+
+  await prisma.transaction.createMany({
+    data: transactions.map((transaction) => ({ ...transaction, userId: demoUser.id })),
+  });
+  await prisma.task.createMany({
+    data: tasks.map((task) => ({ ...task, userId: demoUser.id })),
+  });
 }
 
 main()

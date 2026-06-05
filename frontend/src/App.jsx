@@ -7,14 +7,20 @@ import {
   CheckCircle2,
   ClipboardList,
   DollarSign,
+  Eye,
+  EyeOff,
   Loader2,
+  LogIn,
+  LogOut,
   Mail,
   Plus,
   Search,
   Send,
+  ShieldCheck,
   Sparkles,
   Target,
   Trash2,
+  UserPlus,
   WalletCards,
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
@@ -52,6 +58,7 @@ import {
 import { cn } from "./lib/utils";
 
 const apiUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:3001";
+const tokenKey = "nexaflow-token";
 const currency = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
@@ -66,9 +73,11 @@ const tabs = [
 const chartColors = ["#34d399", "#60a5fa", "#fbbf24", "#fb7185", "#a78bfa"];
 
 async function api(path, options = {}) {
+  const token = localStorage.getItem(tokenKey);
   const response = await fetch(`${apiUrl}${path}`, {
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.headers || {}),
     },
     ...options,
@@ -88,6 +97,39 @@ async function api(path, options = {}) {
 
 function App() {
   const [activeTab, setActiveTab] = useState("finance");
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    if (!localStorage.getItem(tokenKey)) {
+      setAuthLoading(false);
+      return;
+    }
+
+    api("/api/auth/me")
+      .then((response) => setUser(response.user))
+      .catch(() => localStorage.removeItem(tokenKey))
+      .finally(() => setAuthLoading(false));
+  }, []);
+
+  function authenticate(response) {
+    localStorage.setItem(tokenKey, response.token);
+    setUser(response.user);
+  }
+
+  function logout() {
+    localStorage.removeItem(tokenKey);
+    setUser(null);
+    setActiveTab("finance");
+  }
+
+  if (authLoading) {
+    return <FullPageLoading />;
+  }
+
+  if (!user) {
+    return <AuthScreen onAuthenticated={authenticate} />;
+  }
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8">
@@ -104,34 +146,46 @@ function App() {
           </div>
         </div>
 
-        <nav
-          aria-label="Navegacao principal"
-          className="grid grid-cols-3 rounded-lg border border-zinc-800 bg-zinc-900/70 p-1"
-        >
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <Button
-                className="relative min-w-0 px-3"
-                key={tab.id}
-                title={tab.label}
-                type="button"
-                variant="ghost"
-                onClick={() => setActiveTab(tab.id)}
-              >
-                {activeTab === tab.id && (
-                  <motion.span
-                    className="absolute inset-0 rounded-md bg-zinc-700/80"
-                    layoutId="active-tab"
-                    transition={{ duration: 0.2 }}
-                  />
-                )}
-                <Icon className="relative" size={17} />
-                <span className="relative hidden sm:inline">{tab.label}</span>
-              </Button>
-            );
-          })}
-        </nav>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <nav
+            aria-label="Navegacao principal"
+            className="grid grid-cols-3 rounded-lg border border-zinc-800 bg-zinc-900/70 p-1"
+          >
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <Button
+                  className="relative min-w-0 px-3"
+                  key={tab.id}
+                  title={tab.label}
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setActiveTab(tab.id)}
+                >
+                  {activeTab === tab.id && (
+                    <motion.span
+                      className="absolute inset-0 rounded-md bg-zinc-700/80"
+                      layoutId="active-tab"
+                      transition={{ duration: 0.2 }}
+                    />
+                  )}
+                  <Icon className="relative" size={17} />
+                  <span className="relative hidden sm:inline">{tab.label}</span>
+                </Button>
+              );
+            })}
+          </nav>
+
+          <div className="flex items-center justify-between gap-3 border-l-0 border-zinc-800 sm:border-l sm:pl-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-zinc-100">{user.name}</p>
+              <p className="truncate text-xs text-zinc-500">{user.email}</p>
+            </div>
+            <Button aria-label="Sair" size="icon" title="Sair" type="button" variant="ghost" onClick={logout}>
+              <LogOut size={17} />
+            </Button>
+          </div>
+        </div>
       </header>
 
       <AnimatePresence mode="wait">
@@ -147,6 +201,188 @@ function App() {
           {activeTab === "tasks" && <TasksApp />}
         </motion.div>
       </AnimatePresence>
+    </main>
+  );
+}
+
+function AuthScreen({ onAuthenticated }) {
+  const [mode, setMode] = useState("login");
+  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const isRegister = mode === "register";
+
+  async function submit(event) {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await api(`/api/auth/${mode}`, {
+        method: "POST",
+        body: JSON.stringify(form),
+      });
+      onAuthenticated(response);
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function useDemo() {
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await api("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email: "demo@nexaflow.app", password: "demo1234" }),
+      });
+      onAuthenticated(response);
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <main className="grid min-h-screen place-items-center px-4 py-8">
+      <motion.div
+        animate={{ opacity: 1, y: 0 }}
+        className="grid w-full max-w-5xl overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900/80 shadow-2xl shadow-black/30 lg:grid-cols-[minmax(0,1fr)_420px]"
+        initial={{ opacity: 0, y: 16 }}
+        transition={{ duration: 0.35 }}
+      >
+        <section className="flex flex-col justify-between border-b border-zinc-800 p-6 sm:p-9 lg:border-b-0 lg:border-r">
+          <div>
+            <div className="flex size-11 items-center justify-center rounded-lg bg-emerald-400 text-zinc-950">
+              <Sparkles size={21} />
+            </div>
+            <p className="mt-5 text-xl font-bold text-zinc-50">NexaFlow</p>
+            <h1 className="mt-8 max-w-xl text-3xl font-bold leading-tight text-zinc-50 sm:text-5xl">
+              Sua rotina organizada em um unico fluxo.
+            </h1>
+            <p className="mt-4 max-w-xl text-sm leading-7 text-zinc-400 sm:text-base">
+              Acompanhe financas, estudos e tarefas em um ambiente privado, conectado e
+              preparado para acompanhar seu progresso.
+            </p>
+          </div>
+
+          <div className="mt-10 grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+            {[
+              ["Financas pessoais", "Transacoes e graficos protegidos por conta."],
+              ["Taskly", "Tarefas e prioridades sincronizadas."],
+              ["Sessao segura", "Senhas protegidas e acesso autenticado."],
+            ].map(([title, description]) => (
+              <div className="flex gap-3 rounded-lg border border-zinc-800 bg-zinc-950/35 p-3" key={title}>
+                <ShieldCheck className="mt-0.5 shrink-0 text-emerald-300" size={18} />
+                <div>
+                  <p className="text-sm font-semibold text-zinc-100">{title}</p>
+                  <p className="mt-1 text-xs leading-5 text-zinc-500">{description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="p-6 sm:p-9">
+          <div className="mb-7">
+            <p className="text-sm font-semibold text-emerald-300">
+              {isRegister ? "Nova conta" : "Bem-vindo de volta"}
+            </p>
+            <h2 className="mt-2 text-2xl font-bold text-zinc-50">
+              {isRegister ? "Crie seu acesso" : "Entre no NexaFlow"}
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-zinc-500">
+              {isRegister
+                ? "Seus dados ficarao separados e protegidos."
+                : "Continue de onde parou em poucos segundos."}
+            </p>
+          </div>
+
+          <form className="grid gap-3" onSubmit={submit}>
+            {isRegister && (
+              <Input
+                autoComplete="name"
+                placeholder="Seu nome"
+                required
+                value={form.name}
+                onChange={(event) => setForm({ ...form, name: event.target.value })}
+              />
+            )}
+            <Input
+              autoComplete="email"
+              placeholder="seuemail@exemplo.com"
+              required
+              type="email"
+              value={form.email}
+              onChange={(event) => setForm({ ...form, email: event.target.value })}
+            />
+            <div className="relative">
+              <Input
+                autoComplete={isRegister ? "new-password" : "current-password"}
+                className="pr-11"
+                minLength={8}
+                placeholder="Senha"
+                required
+                type={showPassword ? "text" : "password"}
+                value={form.password}
+                onChange={(event) => setForm({ ...form, password: event.target.value })}
+              />
+              <Button
+                aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                className="absolute right-0 top-0"
+                size="icon"
+                type="button"
+                variant="ghost"
+                onClick={() => setShowPassword((current) => !current)}
+              >
+                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+              </Button>
+            </div>
+
+            {error && <p className="text-sm text-red-300">{error}</p>}
+
+            <Button disabled={loading} type="submit">
+              {loading ? (
+                <Loader2 className="animate-spin" size={17} />
+              ) : isRegister ? (
+                <UserPlus size={17} />
+              ) : (
+                <LogIn size={17} />
+              )}
+              {isRegister ? "Criar conta" : "Entrar"}
+            </Button>
+          </form>
+
+          <div className="mt-5 grid gap-2">
+            <Button disabled={loading} type="button" variant="secondary" onClick={useDemo}>
+              Usar conta demonstrativa
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setMode(isRegister ? "login" : "register");
+                setError("");
+              }}
+            >
+              {isRegister ? "Ja tenho uma conta" : "Criar uma nova conta"}
+            </Button>
+          </div>
+        </section>
+      </motion.div>
+    </main>
+  );
+}
+
+function FullPageLoading() {
+  return (
+    <main className="grid min-h-screen place-items-center">
+      <LoadingLabel />
     </main>
   );
 }
