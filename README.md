@@ -10,17 +10,24 @@ Mostrar no GitHub um produto com separacao clara entre front-end e back-end, con
 
 - React
 - Vite
+- Tailwind CSS
+- Componentes baseados em shadcn/ui
+- Framer Motion
+- Recharts
+- Lucide React
+- Google Fonts / Inter
 - Node.js
 - Express
 - JavaScript
-- CSS responsivo
 
 ## Funcionalidades
 
-- Dashboard de financas consumindo API.
+- Dashboard financeiro responsivo com graficos de barras, pizza e linha.
 - Cadastro e remocao de transacoes.
-- App de tarefas com criacao, conclusao, filtros e remocao.
-- Landing page com formulario conectado ao back-end.
+- Taskly com criacao, conclusao, filtros e remocao de tarefas.
+- Area de estudos com formulario conectado ao back-end.
+- Componentes reutilizaveis: Card, Button, Input, Badge, Table e Select.
+- Animacoes e transicoes com Framer Motion.
 - Persistencia em `backend/data/db.json`.
 
 ## Como rodar

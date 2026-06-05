@@ -1,15 +1,55 @@
+import { AnimatePresence, motion } from "framer-motion";
 import {
+  ArrowDownRight,
+  ArrowUpRight,
   BarChart3,
+  BookOpenCheck,
   CheckCircle2,
   ClipboardList,
   DollarSign,
   Loader2,
   Mail,
   Plus,
+  Search,
   Send,
+  Sparkles,
+  Target,
   Trash2,
+  WalletCards,
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Input,
+  Select,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "./components/ui";
+import { cn } from "./lib/utils";
 
 const apiUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:3001";
 const currency = new Intl.NumberFormat("pt-BR", {
@@ -19,9 +59,11 @@ const currency = new Intl.NumberFormat("pt-BR", {
 
 const tabs = [
   { id: "finance", label: "Financas", icon: DollarSign },
-  { id: "landing", label: "Landing", icon: BarChart3 },
+  { id: "landing", label: "Estudos", icon: BookOpenCheck },
   { id: "tasks", label: "Taskly", icon: ClipboardList },
 ];
+
+const chartColors = ["#34d399", "#60a5fa", "#fbbf24", "#fb7185", "#a78bfa"];
 
 async function api(path, options = {}) {
   const response = await fetch(`${apiUrl}${path}`, {
@@ -48,37 +90,63 @@ function App() {
   const [activeTab, setActiveTab] = useState("finance");
 
   return (
-    <main className="app-shell">
-      <header className="app-header">
-        <div>
-          <p className="eyebrow">NexaFlow</p>
-          <h1>Financas, tarefas e rotina em um so painel.</h1>
-          <p className="header-copy">
-            Organize gastos, acompanhe tarefas e capture contatos em uma experiencia
-            conectada por uma API Node.
-          </p>
+    <main className="mx-auto min-h-screen w-full max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8">
+      <header className="mb-6 flex flex-col gap-5 border-b border-zinc-800 pb-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-400 text-zinc-950">
+            <Sparkles size={20} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-lg font-bold text-zinc-50">NexaFlow</p>
+            <p className="truncate text-sm text-zinc-500">
+              Financas, estudos e tarefas conectados
+            </p>
+          </div>
         </div>
-        <nav className="tab-bar" aria-label="Navegacao principal">
+
+        <nav
+          aria-label="Navegacao principal"
+          className="grid grid-cols-3 rounded-lg border border-zinc-800 bg-zinc-900/70 p-1"
+        >
           {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
-              <button
-                className={activeTab === tab.id ? "active" : ""}
+              <Button
+                className="relative min-w-0 px-3"
                 key={tab.id}
+                title={tab.label}
                 type="button"
+                variant="ghost"
                 onClick={() => setActiveTab(tab.id)}
               >
-                <Icon size={18} />
-                {tab.label}
-              </button>
+                {activeTab === tab.id && (
+                  <motion.span
+                    className="absolute inset-0 rounded-md bg-zinc-700/80"
+                    layoutId="active-tab"
+                    transition={{ duration: 0.2 }}
+                  />
+                )}
+                <Icon className="relative" size={17} />
+                <span className="relative hidden sm:inline">{tab.label}</span>
+              </Button>
             );
           })}
         </nav>
       </header>
 
-      {activeTab === "finance" && <FinanceDashboard />}
-      {activeTab === "landing" && <LandingPage />}
-      {activeTab === "tasks" && <TasksApp />}
+      <AnimatePresence mode="wait">
+        <motion.div
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          initial={{ opacity: 0, y: 12 }}
+          key={activeTab}
+          transition={{ duration: 0.25 }}
+        >
+          {activeTab === "finance" && <FinanceDashboard />}
+          {activeTab === "landing" && <StudyLanding />}
+          {activeTab === "tasks" && <TasksApp />}
+        </motion.div>
+      </AnimatePresence>
     </main>
   );
 }
@@ -124,7 +192,6 @@ function FinanceDashboard() {
       const matchesSearch = transaction.description
         .toLowerCase()
         .includes(search.toLowerCase());
-
       return matchesCategory && matchesSearch;
     });
   }, [transactions, categoryFilter, search]);
@@ -145,14 +212,30 @@ function FinanceDashboard() {
     };
   }, [filteredTransactions]);
 
+  const expenseByCategory = useMemo(() => {
+    const grouped = filteredTransactions
+      .filter((item) => item.type === "expense")
+      .reduce((result, item) => {
+        result[item.category] = (result[item.category] || 0) + item.amount;
+        return result;
+      }, {});
+
+    return Object.entries(grouped).map(([name, value]) => ({ name, value }));
+  }, [filteredTransactions]);
+
+  const balanceTrend = useMemo(() => {
+    let balance = 0;
+    return [...filteredTransactions].reverse().map((item, index) => {
+      balance += item.type === "income" ? item.amount : -item.amount;
+      return { name: `Mov. ${index + 1}`, saldo: balance };
+    });
+  }, [filteredTransactions]);
+
   async function createTransaction(event) {
     event.preventDefault();
     const created = await api("/api/transactions", {
       method: "POST",
-      body: JSON.stringify({
-        ...form,
-        amount: Number(form.amount),
-      }),
+      body: JSON.stringify({ ...form, amount: Number(form.amount) }),
     });
     setTransactions((current) => [created, ...current]);
     setForm({ description: "", category: "", amount: "", type: "expense" });
@@ -163,131 +246,275 @@ function FinanceDashboard() {
     setTransactions((current) => current.filter((item) => item.id !== id));
   }
 
+  const metrics = [
+    {
+      title: "Saldo atual",
+      value: currency.format(totals.balance),
+      detail: "Disponivel no periodo",
+      icon: WalletCards,
+      tone: "emerald",
+    },
+    {
+      title: "Entradas",
+      value: currency.format(totals.income),
+      detail: `${filteredTransactions.filter((item) => item.type === "income").length} lancamentos`,
+      icon: ArrowUpRight,
+      tone: "sky",
+    },
+    {
+      title: "Saidas",
+      value: currency.format(totals.expense),
+      detail: `${filteredTransactions.filter((item) => item.type === "expense").length} lancamentos`,
+      icon: ArrowDownRight,
+      tone: "rose",
+    },
+    {
+      title: "Taxa de economia",
+      value: `${totals.savingsRate}%`,
+      detail: "Do total de entradas",
+      icon: Target,
+      tone: "amber",
+    },
+  ];
+
   return (
-    <section className="view-stack">
-      <div className="metric-grid">
-        <Metric title="Saldo" value={currency.format(totals.balance)} tone="blue" />
-        <Metric title="Entradas" value={currency.format(totals.income)} tone="green" />
-        <Metric title="Saidas" value={currency.format(totals.expense)} tone="red" />
-        <Metric title="Economia" value={`${totals.savingsRate}%`} tone="yellow" />
+    <div className="space-y-5">
+      <PageHeading
+        description="Acompanhe o fluxo financeiro, compare entradas e saidas e entenda para onde seu dinheiro esta indo."
+        eyebrow="Painel financeiro"
+        title="Visao geral"
+      />
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {metrics.map((metric, index) => (
+          <MetricCard index={index} key={metric.title} {...metric} />
+        ))}
       </div>
 
-      <div className="workspace-grid">
-        <section className="panel">
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">API / Financas</p>
-              <h2>Transacoes</h2>
-            </div>
-            <div className="filters">
-              <input
-                aria-label="Buscar transacao"
-                placeholder="Buscar"
-                type="search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
+      <div className="grid gap-4 xl:grid-cols-2">
+        <ChartCard
+          description="Comparativo consolidado do periodo"
+          title="Entradas x saidas"
+        >
+          <ResponsiveContainer height="100%" width="100%">
+            <BarChart
+              data={[
+                { name: "Entradas", valor: totals.income },
+                { name: "Saidas", valor: totals.expense },
+              ]}
+            >
+              <CartesianGrid stroke="#27272a" strokeDasharray="4 4" vertical={false} />
+              <XAxis axisLine={false} dataKey="name" tickLine={false} />
+              <YAxis axisLine={false} tickFormatter={compactCurrency} tickLine={false} />
+              <Tooltip formatter={(value) => currency.format(value)} />
+              <Bar dataKey="valor" radius={[6, 6, 0, 0]}>
+                <Cell fill="#34d399" />
+                <Cell fill="#fb7185" />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard
+          description="Distribuicao das despesas por categoria"
+          title="Gastos por categoria"
+        >
+          {expenseByCategory.length ? (
+            <ResponsiveContainer height="100%" width="100%">
+              <PieChart>
+                <Pie
+                  data={expenseByCategory}
+                  dataKey="value"
+                  innerRadius={62}
+                  nameKey="name"
+                  outerRadius={98}
+                  paddingAngle={3}
+                >
+                  {expenseByCategory.map((item, index) => (
+                    <Cell fill={chartColors[index % chartColors.length]} key={item.name} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => currency.format(value)} />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <EmptyState text="Adicione uma saida para visualizar o grafico." />
+          )}
+        </ChartCard>
+      </div>
+
+      <ChartCard
+        description="Saldo acumulado a cada movimentacao cadastrada"
+        title="Evolucao do saldo"
+      >
+        {balanceTrend.length ? (
+          <ResponsiveContainer height="100%" width="100%">
+            <LineChart data={balanceTrend}>
+              <CartesianGrid stroke="#27272a" strokeDasharray="4 4" vertical={false} />
+              <XAxis axisLine={false} dataKey="name" tickLine={false} />
+              <YAxis axisLine={false} tickFormatter={compactCurrency} tickLine={false} />
+              <Tooltip formatter={(value) => currency.format(value)} />
+              <Line
+                dataKey="saldo"
+                dot={{ fill: "#34d399", r: 3 }}
+                stroke="#34d399"
+                strokeWidth={3}
+                type="monotone"
               />
-              <select
+            </LineChart>
+          </ResponsiveContainer>
+        ) : (
+          <EmptyState text="Cadastre movimentacoes para visualizar a evolucao." />
+        )}
+      </ChartCard>
+
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.65fr)_360px]">
+        <Card>
+          <CardHeader className="gap-4 border-b border-zinc-800">
+            <div>
+              <CardTitle>Transacoes recentes</CardTitle>
+              <CardDescription>Dados sincronizados com a API Node.</CardDescription>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-[1fr_180px]">
+              <div className="relative">
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
+                  size={16}
+                />
+                <Input
+                  aria-label="Buscar transacao"
+                  className="pl-9"
+                  placeholder="Buscar transacao"
+                  type="search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                />
+              </div>
+              <Select
                 aria-label="Filtrar categoria"
                 value={categoryFilter}
                 onChange={(event) => setCategoryFilter(event.target.value)}
               >
-                <option value="all">Todas</option>
+                <option value="all">Todas as categorias</option>
                 {categories.map((category) => (
                   <option key={category} value={category}>
                     {category}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
-          </div>
-
-          {loading && <LoadingLabel />}
-          {error && <p className="error">{error}</p>}
-          {!loading && (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Descricao</th>
-                    <th>Categoria</th>
-                    <th>Tipo</th>
-                    <th>Valor</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
+          </CardHeader>
+          <CardContent className="p-0">
+            {loading && <LoadingLabel />}
+            {error && <p className="p-5 text-sm text-red-300">{error}</p>}
+            {!loading && (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Descricao</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
+                    <TableHead className="w-14" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {filteredTransactions.map((transaction) => (
-                    <tr key={transaction.id}>
-                      <td>{transaction.description}</td>
-                      <td>
-                        <span className="tag">{transaction.category}</span>
-                      </td>
-                      <td>{transaction.type === "income" ? "Entrada" : "Saida"}</td>
-                      <td className={transaction.type === "income" ? "positive" : "negative"}>
+                    <TableRow key={transaction.id}>
+                      <TableCell className="font-medium text-zinc-100">
+                        {transaction.description}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="neutral">{transaction.category}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={transaction.type === "income" ? "success" : "danger"}>
+                          {transaction.type === "income" ? "Entrada" : "Saida"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell
+                        className={cn(
+                          "text-right font-semibold",
+                          transaction.type === "income"
+                            ? "text-emerald-300"
+                            : "text-red-300",
+                        )}
+                      >
                         {currency.format(transaction.amount)}
-                      </td>
-                      <td>
-                        <IconButton
-                          label="Remover transacao"
-                          tone="danger"
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          aria-label="Remover transacao"
+                          size="icon"
+                          type="button"
+                          variant="destructive"
                           onClick={() => deleteTransaction(transaction.id)}
                         >
                           <Trash2 size={16} />
-                        </IconButton>
-                      </td>
-                    </tr>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
 
-        <aside className="panel">
-          <p className="eyebrow">Node API</p>
-          <h2>Nova transacao</h2>
-          <form className="form-stack" onSubmit={createTransaction}>
-            <input
-              placeholder="Descricao"
-              required
-              value={form.description}
-              onChange={(event) => setForm({ ...form, description: event.target.value })}
-            />
-            <input
-              placeholder="Categoria"
-              required
-              value={form.category}
-              onChange={(event) => setForm({ ...form, category: event.target.value })}
-            />
-            <input
-              min="0.01"
-              placeholder="Valor"
-              required
-              step="0.01"
-              type="number"
-              value={form.amount}
-              onChange={(event) => setForm({ ...form, amount: event.target.value })}
-            />
-            <select
-              value={form.type}
-              onChange={(event) => setForm({ ...form, type: event.target.value })}
-            >
-              <option value="expense">Saida</option>
-              <option value="income">Entrada</option>
-            </select>
-            <button className="primary-button" type="submit">
-              <Plus size={18} />
-              Adicionar
-            </button>
-          </form>
-        </aside>
+        <TransactionForm form={form} setForm={setForm} onSubmit={createTransaction} />
       </div>
-    </section>
+    </div>
   );
 }
 
-function LandingPage() {
+function TransactionForm({ form, onSubmit, setForm }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Nova transacao</CardTitle>
+        <CardDescription>Registre uma entrada ou saida no painel.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form className="grid gap-3" onSubmit={onSubmit}>
+          <Input
+            placeholder="Descricao"
+            required
+            value={form.description}
+            onChange={(event) => setForm({ ...form, description: event.target.value })}
+          />
+          <Input
+            placeholder="Categoria"
+            required
+            value={form.category}
+            onChange={(event) => setForm({ ...form, category: event.target.value })}
+          />
+          <Input
+            min="0.01"
+            placeholder="Valor"
+            required
+            step="0.01"
+            type="number"
+            value={form.amount}
+            onChange={(event) => setForm({ ...form, amount: event.target.value })}
+          />
+          <Select
+            value={form.type}
+            onChange={(event) => setForm({ ...form, type: event.target.value })}
+          >
+            <option value="expense">Saida</option>
+            <option value="income">Entrada</option>
+          </Select>
+          <Button type="submit">
+            <Plus size={17} />
+            Adicionar transacao
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+function StudyLanding() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
 
@@ -302,58 +529,97 @@ function LandingPage() {
     setMessage("Email salvo no back-end.");
   }
 
-  return (
-    <section className="landing-view">
-      <div className="landing-copy">
-        <p className="eyebrow">Landing + API</p>
-        <h2>NexaFlow tambem cuida da sua rotina de estudos.</h2>
-        <p>
-          A area de estudos mostra a proposta do produto e envia contatos para o
-          backend Express em vez de ficar so no navegador.
-        </p>
-        <form className="lead-form" onSubmit={submitLead}>
-          <input
-            placeholder="seuemail@exemplo.com"
-            required
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-          />
-          <button className="primary-button" type="submit">
-            <Send size={18} />
-            Enviar
-          </button>
-        </form>
-        {message && <p className="success">{message}</p>}
-      </div>
+  const schedule = [
+    ["JavaScript moderno", "09:00", "Concluido"],
+    ["React e componentes", "14:00", "Em andamento"],
+    ["Node API", "19:30", "Planejado"],
+  ];
 
-      <div className="product-panel">
-        <div className="product-grid">
-          <article>
-            <span>Hoje</span>
-            <strong>3 blocos</strong>
-          </article>
-          <article>
-            <span>Foco</span>
-            <strong>82%</strong>
-          </article>
-        </div>
-        <ul className="timeline">
-          <li>
-            <span>JavaScript</span>
-            <strong>09:00</strong>
-          </li>
-          <li>
-            <span>React</span>
-            <strong>14:00</strong>
-          </li>
-          <li>
-            <span>Node API</span>
-            <strong>19:30</strong>
-          </li>
-        </ul>
-      </div>
-    </section>
+  return (
+    <div className="grid min-h-[calc(100vh-130px)] items-center gap-8 py-8 lg:grid-cols-[minmax(0,1fr)_480px]">
+      <motion.section
+        animate={{ opacity: 1, x: 0 }}
+        initial={{ opacity: 0, x: -18 }}
+        transition={{ duration: 0.35 }}
+      >
+        <Badge variant="success">
+          <Sparkles size={13} />
+          Rotina conectada
+        </Badge>
+        <h1 className="mt-5 max-w-3xl text-4xl font-bold leading-tight text-zinc-50 sm:text-6xl">
+          Transforme seus estudos em progresso visivel.
+        </h1>
+        <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-400 sm:text-lg">
+          Organize blocos de foco, acompanhe sua evolucao e conecte sua rotina aos
+          outros modulos do NexaFlow.
+        </p>
+        <form className="mt-7 flex max-w-xl flex-col gap-2 sm:flex-row" onSubmit={submitLead}>
+          <div className="relative flex-1">
+            <Mail
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
+              size={17}
+            />
+            <Input
+              className="pl-9"
+              placeholder="seuemail@exemplo.com"
+              required
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+          </div>
+          <Button type="submit">
+            <Send size={17} />
+            Quero acompanhar
+          </Button>
+        </form>
+        {message && <p className="mt-3 text-sm font-medium text-emerald-300">{message}</p>}
+      </motion.section>
+
+      <motion.div
+        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0, y: 18 }}
+        transition={{ delay: 0.08, duration: 0.4 }}
+      >
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b border-zinc-800">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <CardTitle>Plano de hoje</CardTitle>
+                <CardDescription>Quinta-feira, 5 de junho</CardDescription>
+              </div>
+              <Badge variant="warning">82% foco</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-5">
+            <div className="grid grid-cols-2 gap-3">
+              <MiniStat label="Blocos" value="3" />
+              <MiniStat label="Tempo focado" value="4h 20m" />
+            </div>
+            <div className="space-y-2">
+              {schedule.map(([title, time, status], index) => (
+                <motion.article
+                  animate={{ opacity: 1, x: 0 }}
+                  className="flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3"
+                  initial={{ opacity: 0, x: 12 }}
+                  key={title}
+                  transition={{ delay: 0.15 + index * 0.08 }}
+                >
+                  <div className="flex size-9 items-center justify-center rounded-md bg-emerald-400/10 text-emerald-300">
+                    <BookOpenCheck size={17} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-zinc-100">{title}</p>
+                    <p className="text-xs text-zinc-500">{status}</p>
+                  </div>
+                  <span className="text-sm font-medium text-zinc-400">{time}</span>
+                </motion.article>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+    </div>
   );
 }
 
@@ -375,12 +641,8 @@ function TasksApp() {
   }, []);
 
   const visibleTasks = tasks.filter((task) => {
-    if (filter === "pending") {
-      return !task.done;
-    }
-    if (filter === "done") {
-      return task.done;
-    }
+    if (filter === "pending") return !task.done;
+    if (filter === "done") return task.done;
     return true;
   });
 
@@ -415,115 +677,244 @@ function TasksApp() {
   }
 
   return (
-    <section className="view-stack">
-      <div className="metric-grid three">
-        <Metric title="Total" value={counters.total} tone="blue" />
-        <Metric title="Pendentes" value={counters.pending} tone="yellow" />
-        <Metric title="Concluidas" value={counters.done} tone="green" />
+    <div className="space-y-5">
+      <PageHeading
+        description="Capture tarefas, escolha prioridades e acompanhe o que ja foi concluido."
+        eyebrow="Organizador de tarefas"
+        title="Taskly"
+      />
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <MetricCard
+          detail="Itens cadastrados"
+          icon={ClipboardList}
+          index={0}
+          title="Total"
+          tone="sky"
+          value={counters.total}
+        />
+        <MetricCard
+          detail="Aguardando acao"
+          icon={Target}
+          index={1}
+          title="Pendentes"
+          tone="amber"
+          value={counters.pending}
+        />
+        <MetricCard
+          detail="Progresso registrado"
+          icon={CheckCircle2}
+          index={2}
+          title="Concluidas"
+          tone="emerald"
+          value={counters.done}
+        />
       </div>
 
-      <div className="workspace-grid">
-        <aside className="panel">
-          <p className="eyebrow">Taskly / Node API</p>
-          <h2>Nova tarefa</h2>
-          <form className="form-stack" onSubmit={createTask}>
-            <input
-              placeholder="Titulo da tarefa"
-              required
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-            />
-            <select value={priority} onChange={(event) => setPriority(event.target.value)}>
-              <option value="alta">Alta</option>
-              <option value="media">Media</option>
-              <option value="baixa">Baixa</option>
-            </select>
-            <button className="primary-button" type="submit">
-              <Plus size={18} />
-              Adicionar
-            </button>
-          </form>
-        </aside>
+      <div className="grid items-start gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Nova tarefa</CardTitle>
+            <CardDescription>Adicione o proximo item da sua rotina.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form className="grid gap-3" onSubmit={createTask}>
+              <Input
+                placeholder="Titulo da tarefa"
+                required
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+              />
+              <Select value={priority} onChange={(event) => setPriority(event.target.value)}>
+                <option value="alta">Prioridade alta</option>
+                <option value="media">Prioridade media</option>
+                <option value="baixa">Prioridade baixa</option>
+              </Select>
+              <Button type="submit">
+                <Plus size={17} />
+                Adicionar tarefa
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
 
-        <section className="panel">
-          <div className="panel-header">
+        <Card>
+          <CardHeader className="gap-4 border-b border-zinc-800 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="eyebrow">React state</p>
-              <h2>Minhas tarefas</h2>
+              <CardTitle>Minhas tarefas</CardTitle>
+              <CardDescription>{visibleTasks.length} itens neste filtro</CardDescription>
             </div>
-            <div className="filters">
+            <div className="grid grid-cols-3 rounded-lg border border-zinc-800 bg-zinc-950/40 p-1">
               {[
                 ["all", "Todas"],
                 ["pending", "Pendentes"],
                 ["done", "Concluidas"],
               ].map(([id, label]) => (
-                <button
-                  className={filter === id ? "active" : ""}
+                <Button
+                  className={cn(filter === id && "bg-zinc-700 text-zinc-50")}
                   key={id}
+                  size="sm"
                   type="button"
+                  variant="ghost"
                   onClick={() => setFilter(id)}
                 >
                   {label}
-                </button>
+                </Button>
               ))}
             </div>
-          </div>
-          {loading && <LoadingLabel />}
-          <ul className="task-list">
-            {visibleTasks.map((task) => (
-              <li className={task.done ? "done" : ""} key={task.id}>
-                <button
-                  aria-label="Alternar tarefa"
-                  className="check-button"
-                  type="button"
-                  onClick={() => toggleTask(task)}
-                >
-                  <CheckCircle2 size={20} />
-                </button>
-                <div>
-                  <strong>{task.title}</strong>
-                  <span className={`priority ${task.priority}`}>{task.priority}</span>
-                </div>
-                <IconButton
-                  label="Remover tarefa"
-                  tone="danger"
-                  onClick={() => deleteTask(task.id)}
-                >
-                  <Trash2 size={16} />
-                </IconButton>
-              </li>
-            ))}
-          </ul>
-        </section>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-4">
+            {loading && <LoadingLabel />}
+            {!loading && !visibleTasks.length && (
+              <EmptyState text="Nenhuma tarefa encontrada neste filtro." />
+            )}
+            <div className="space-y-2">
+              <AnimatePresence initial={false}>
+                {visibleTasks.map((task) => (
+                  <motion.article
+                    animate={{ opacity: 1, y: 0 }}
+                    className={cn(
+                      "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-950/35 p-3",
+                      task.done && "opacity-60",
+                    )}
+                    exit={{ opacity: 0, x: 20 }}
+                    initial={{ opacity: 0, y: 8 }}
+                    key={task.id}
+                    layout
+                  >
+                    <Button
+                      aria-label="Alternar tarefa"
+                      className={cn(task.done && "bg-emerald-400 text-zinc-950")}
+                      size="icon"
+                      type="button"
+                      variant="secondary"
+                      onClick={() => toggleTask(task)}
+                    >
+                      <CheckCircle2 size={17} />
+                    </Button>
+                    <div className="min-w-0">
+                      <p
+                        className={cn(
+                          "truncate text-sm font-semibold text-zinc-100",
+                          task.done && "text-zinc-500 line-through",
+                        )}
+                      >
+                        {task.title}
+                      </p>
+                      <Badge className="mt-1" variant={priorityVariant(task.priority)}>
+                        {task.priority}
+                      </Badge>
+                    </div>
+                    <Button
+                      aria-label="Remover tarefa"
+                      size="icon"
+                      type="button"
+                      variant="destructive"
+                      onClick={() => deleteTask(task.id)}
+                    >
+                      <Trash2 size={16} />
+                    </Button>
+                  </motion.article>
+                ))}
+              </AnimatePresence>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-    </section>
+    </div>
   );
 }
 
-function Metric({ title, value, tone }) {
+function PageHeading({ description, eyebrow, title }) {
   return (
-    <article className={`metric-card ${tone}`}>
-      <span>{title}</span>
-      <strong>{value}</strong>
-    </article>
+    <div className="flex flex-col gap-2">
+      <p className="text-xs font-semibold uppercase text-emerald-300">{eyebrow}</p>
+      <h1 className="text-3xl font-bold text-zinc-50 sm:text-4xl">{title}</h1>
+      <p className="max-w-3xl text-sm leading-6 text-zinc-400">{description}</p>
+    </div>
   );
 }
 
-function IconButton({ children, label, tone = "neutral", onClick }) {
+function MetricCard({ detail, icon: Icon, index, title, tone, value }) {
+  const tones = {
+    emerald: "bg-emerald-400/10 text-emerald-300",
+    sky: "bg-sky-400/10 text-sky-300",
+    rose: "bg-rose-400/10 text-rose-300",
+    amber: "bg-amber-400/10 text-amber-300",
+  };
+
   return (
-    <button aria-label={label} className={`icon-button ${tone}`} type="button" onClick={onClick}>
-      {children}
-    </button>
+    <motion.div
+      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, y: 14 }}
+      transition={{ delay: index * 0.06, duration: 0.32 }}
+    >
+      <Card className="h-full">
+        <CardContent className="flex items-start justify-between gap-4 p-4">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-zinc-400">{title}</p>
+            <p className="mt-2 truncate text-2xl font-bold text-zinc-50">{value}</p>
+            <p className="mt-1 text-xs text-zinc-500">{detail}</p>
+          </div>
+          <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-lg", tones[tone])}>
+            <Icon size={19} />
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+}
+
+function ChartCard({ children, description, title }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent className="h-72">{children}</CardContent>
+    </Card>
+  );
+}
+
+function MiniStat({ label, value }) {
+  return (
+    <div className="rounded-lg border border-zinc-800 bg-zinc-950/45 p-4">
+      <p className="text-xs font-medium text-zinc-500">{label}</p>
+      <p className="mt-2 text-xl font-bold text-zinc-100">{value}</p>
+    </div>
+  );
+}
+
+function EmptyState({ text }) {
+  return (
+    <div className="flex h-full min-h-28 items-center justify-center rounded-lg border border-dashed border-zinc-700 p-5 text-center text-sm text-zinc-500">
+      {text}
+    </div>
   );
 }
 
 function LoadingLabel() {
   return (
-    <p className="loading-label">
-      <Loader2 size={18} />
+    <p className="flex items-center gap-2 p-5 text-sm text-zinc-400">
+      <Loader2 className="animate-spin" size={17} />
       Carregando API...
     </p>
   );
+}
+
+function priorityVariant(priority) {
+  if (priority === "alta") return "danger";
+  if (priority === "media") return "warning";
+  return "success";
+}
+
+function compactCurrency(value) {
+  return new Intl.NumberFormat("pt-BR", {
+    notation: "compact",
+    style: "currency",
+    currency: "BRL",
+  }).format(value);
 }
 
 export default App;
