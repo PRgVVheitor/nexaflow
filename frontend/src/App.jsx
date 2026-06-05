@@ -306,7 +306,10 @@ function FinanceDashboard() {
               <CartesianGrid stroke="#27272a" strokeDasharray="4 4" vertical={false} />
               <XAxis axisLine={false} dataKey="name" tickLine={false} />
               <YAxis axisLine={false} tickFormatter={compactCurrency} tickLine={false} />
-              <Tooltip formatter={(value) => currency.format(value)} />
+              <Tooltip
+                cursor={{ fill: "#27272a", opacity: 0.45 }}
+                formatter={(value) => currency.format(value)}
+              />
               <Bar dataKey="valor" radius={[6, 6, 0, 0]}>
                 <Cell fill="#34d399" />
                 <Cell fill="#fb7185" />
