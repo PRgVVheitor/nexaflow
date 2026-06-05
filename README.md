@@ -17,6 +17,9 @@ Mostrar no GitHub um produto com separacao clara entre front-end e back-end, con
 - Framer Motion
 - Recharts
 - Lucide React
+- React Hook Form
+- React Hot Toast
+- Zod
 - Google Fonts / Inter
 - Node.js
 - Express
@@ -36,8 +39,10 @@ Mostrar no GitHub um produto com separacao clara entre front-end e back-end, con
 - Categorias financeiras padronizadas e seletor visual de entrada ou saida.
 - Cadastro e remocao de transacoes.
 - Taskly com criacao, edicao inline, prazos opcionais, conclusao, filtros e remocao de tarefas.
+- Visualizacao do Taskly em lista ou quadro Kanban.
 - Sinalizacao visual e filtros para tarefas atrasadas, de hoje, proximas ou sem prazo.
 - Indicadores do Taskly com numeros destacados e aneis de progresso.
+- Feedbacks com toasts e validacao visual nos formularios principais.
 - Cadastro, login, restauracao de sessao e logout.
 - Dados financeiros e tarefas isolados por usuario.
 - Senhas protegidas com bcrypt e sessoes assinadas com JWT.

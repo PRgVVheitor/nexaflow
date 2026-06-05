@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   differenceInCalendarDays,
   format,
@@ -15,6 +16,7 @@ import {
   CalendarDays,
   CheckCircle2,
   ClipboardList,
+  Columns3,
   DollarSign,
   Eye,
   EyeOff,
@@ -22,6 +24,7 @@ import {
   Loader2,
   LogIn,
   LogOut,
+  List,
   Pencil,
   Plus,
   Save,
@@ -35,6 +38,9 @@ import {
   X,
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
+import { toast } from "react-hot-toast";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 import {
   Area,
   AreaChart,
@@ -101,6 +107,24 @@ const transactionCategories = {
   ],
   income: ["Renda", "Freelance", "Investimentos", "Outros"],
 };
+const transactionFormSchema = z.object({
+  amount: z.coerce.number({ error: "Informe um valor." }).positive("O valor deve ser maior que zero."),
+  category: z.string().min(1, "Selecione uma categoria."),
+  description: z.string().trim().min(2, "Informe uma descricao com pelo menos 2 caracteres."),
+  type: z.enum(["income", "expense"]),
+});
+const taskFormSchema = z.object({
+  dueDate: z.string().optional(),
+  priority: z.enum(["alta", "media", "baixa"]),
+  title: z.string().trim().min(2, "Informe um titulo com pelo menos 2 caracteres."),
+});
+const loginFormSchema = z.object({
+  email: z.string().trim().email("Informe um email valido."),
+  password: z.string().min(8, "A senha deve ter pelo menos 8 caracteres."),
+});
+const registerFormSchema = loginFormSchema.extend({
+  name: z.string().trim().min(2, "Informe seu nome."),
+});
 
 async function api(path, options = {}) {
   const token = localStorage.getItem(tokenKey);
@@ -151,6 +175,7 @@ function App() {
     localStorage.removeItem(tokenKey);
     setUser(null);
     setActiveTab("finance");
+    toast.success("Sessao encerrada.");
   }
 
   if (authLoading) {
@@ -162,7 +187,7 @@ function App() {
   }
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-[1440px] px-4 py-5 sm:px-6 lg:px-8">
+    <main className="mx-auto min-h-screen w-full max-w-[1440px] px-3 py-4 sm:px-6 sm:py-5 lg:px-8">
       <header className="mb-6 flex flex-col gap-5 border-b border-zinc-800 pb-5 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-400 text-zinc-950">
@@ -240,12 +265,21 @@ function AuthScreen({ onAuthenticated }) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
   const isRegister = mode === "register";
 
   async function submit(event) {
     event.preventDefault();
+    const result = (isRegister ? registerFormSchema : loginFormSchema).safeParse(form);
+    if (!result.success) {
+      setFieldErrors(
+        Object.fromEntries(result.error.issues.map((issue) => [issue.path[0], issue.message])),
+      );
+      return;
+    }
     setLoading(true);
     setError("");
+    setFieldErrors({});
 
     try {
       const response = await api(`/api/auth/${mode}`, {
@@ -255,8 +289,10 @@ function AuthScreen({ onAuthenticated }) {
         ),
       });
       onAuthenticated(response);
+      toast.success(isRegister ? "Conta criada com sucesso." : "Bem-vindo de volta.");
     } catch (requestError) {
       setError(requestError.message);
+      toast.error(requestError.message);
     } finally {
       setLoading(false);
     }
@@ -265,6 +301,7 @@ function AuthScreen({ onAuthenticated }) {
   async function useDemo() {
     setLoading(true);
     setError("");
+    setFieldErrors({});
 
     try {
       const response = await api("/api/auth/login", {
@@ -272,11 +309,18 @@ function AuthScreen({ onAuthenticated }) {
         body: JSON.stringify({ email: "demo@nexaflow.app", password: "demo1234" }),
       });
       onAuthenticated(response);
+      toast.success("Conta demonstrativa carregada.");
     } catch (requestError) {
       setError(requestError.message);
+      toast.error(requestError.message);
     } finally {
       setLoading(false);
     }
+  }
+
+  function updateAuthField(field, value) {
+    setForm((current) => ({ ...current, [field]: value }));
+    setFieldErrors((current) => ({ ...current, [field]: undefined }));
   }
 
   return (
@@ -334,34 +378,37 @@ function AuthScreen({ onAuthenticated }) {
             </p>
           </div>
 
-          <form className="grid gap-3" onSubmit={submit}>
+          <form className="grid gap-3" noValidate onSubmit={submit}>
             {isRegister && (
-              <Input
-                autoComplete="name"
-                placeholder="Seu nome"
-                required
-                value={form.name}
-                onChange={(event) => setForm({ ...form, name: event.target.value })}
-              />
+              <>
+                <Input
+                  aria-invalid={Boolean(fieldErrors.name)}
+                  autoComplete="name"
+                  placeholder="Seu nome"
+                  value={form.name}
+                  onChange={(event) => updateAuthField("name", event.target.value)}
+                />
+                <FieldError error={fieldErrors.name} />
+              </>
             )}
             <Input
+              aria-invalid={Boolean(fieldErrors.email)}
               autoComplete="email"
               placeholder="seuemail@exemplo.com"
-              required
               type="email"
               value={form.email}
-              onChange={(event) => setForm({ ...form, email: event.target.value })}
+              onChange={(event) => updateAuthField("email", event.target.value)}
             />
+            <FieldError error={fieldErrors.email} />
             <div className="relative">
               <Input
+                aria-invalid={Boolean(fieldErrors.password)}
                 autoComplete={isRegister ? "new-password" : "current-password"}
                 className="pr-11"
-                minLength={8}
                 placeholder="Senha"
-                required
                 type={showPassword ? "text" : "password"}
                 value={form.password}
-                onChange={(event) => setForm({ ...form, password: event.target.value })}
+                onChange={(event) => updateAuthField("password", event.target.value)}
               />
               <Button
                 aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
@@ -374,6 +421,7 @@ function AuthScreen({ onAuthenticated }) {
                 {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
               </Button>
             </div>
+            <FieldError error={fieldErrors.password} />
 
             {error && <p className="text-sm text-red-300">{error}</p>}
 
@@ -399,6 +447,7 @@ function AuthScreen({ onAuthenticated }) {
               onClick={() => {
                 setMode(isRegister ? "login" : "register");
                 setError("");
+                setFieldErrors({});
               }}
             >
               {isRegister ? "Ja tenho uma conta" : "Criar uma nova conta"}
@@ -427,12 +476,6 @@ function FinanceDashboard() {
   const [comparisonMonth, setComparisonMonth] = useState(() =>
     shiftMonth(monthKey(new Date()), -1),
   );
-  const [form, setForm] = useState({
-    description: "",
-    category: "",
-    amount: "",
-    type: "expense",
-  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -556,19 +599,29 @@ function FinanceDashboard() {
   const comparisonDelta = selectedMonthData.net - comparisonMonthData.net;
   const hasFinancialActivity = filteredTransactions.length > 0;
 
-  async function createTransaction(event) {
-    event.preventDefault();
-    const created = await api("/api/transactions", {
-      method: "POST",
-      body: JSON.stringify({ ...form, amount: Number(form.amount) }),
-    });
-    setTransactions((current) => [created, ...current]);
-    setForm({ description: "", category: "", amount: "", type: "expense" });
+  async function createTransaction(data) {
+    try {
+      const created = await api("/api/transactions", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      setTransactions((current) => [created, ...current]);
+      toast.success("Transacao adicionada.");
+      return true;
+    } catch (requestError) {
+      toast.error(requestError.message);
+      return false;
+    }
   }
 
   async function deleteTransaction(id) {
-    await api(`/api/transactions/${id}`, { method: "DELETE" });
-    setTransactions((current) => current.filter((item) => item.id !== id));
+    try {
+      await api(`/api/transactions/${id}`, { method: "DELETE" });
+      setTransactions((current) => current.filter((item) => item.id !== id));
+      toast.success("Transacao removida.");
+    } catch (requestError) {
+      toast.error(requestError.message);
+    }
   }
 
   const metrics = [
@@ -938,21 +991,37 @@ function FinanceDashboard() {
           </CardContent>
         </Card>
 
-        <TransactionForm form={form} setForm={setForm} onSubmit={createTransaction} />
+        <TransactionForm onCreate={createTransaction} />
       </div>
     </div>
   );
 }
 
-function TransactionForm({ form, onSubmit, setForm }) {
-  const categories = transactionCategories[form.type];
+function TransactionForm({ onCreate }) {
+  const {
+    formState: { errors, isSubmitting },
+    handleSubmit,
+    register,
+    reset,
+    setValue,
+    watch,
+  } = useForm({
+    defaultValues: { amount: "", category: "", description: "", type: "expense" },
+    resolver: zodResolver(transactionFormSchema),
+  });
+  const type = watch("type");
+  const category = watch("category");
+  const categories = transactionCategories[type];
 
-  function selectType(type) {
-    setForm({
-      ...form,
-      category: transactionCategories[type].includes(form.category) ? form.category : "",
-      type,
-    });
+  function selectType(nextType) {
+    setValue("type", nextType);
+    if (!transactionCategories[nextType].includes(category)) setValue("category", "");
+  }
+
+  async function submit(data) {
+    if (await onCreate(data)) {
+      reset({ amount: "", category: "", description: "", type: data.type });
+    }
   }
 
   return (
@@ -962,19 +1031,20 @@ function TransactionForm({ form, onSubmit, setForm }) {
         <CardDescription>Registre uma entrada ou saida no painel.</CardDescription>
       </CardHeader>
       <CardContent>
-        <form className="grid gap-3" onSubmit={onSubmit}>
+        <form className="grid gap-3" noValidate onSubmit={handleSubmit(submit)}>
           <Input
             aria-label="Descricao"
+            aria-invalid={Boolean(errors.description)}
+            className={cn(errors.description && "border-red-400 focus:border-red-400")}
             placeholder="Descricao"
-            required
-            value={form.description}
-            onChange={(event) => setForm({ ...form, description: event.target.value })}
+            {...register("description")}
           />
+          <FieldError error={errors.description} />
           <Select
             aria-label="Categoria"
-            required
-            value={form.category}
-            onChange={(event) => setForm({ ...form, category: event.target.value })}
+            aria-invalid={Boolean(errors.category)}
+            className={cn(errors.category && "border-red-400 focus:border-red-400")}
+            {...register("category")}
           >
             <option disabled value="">
               Selecione uma categoria
@@ -985,24 +1055,26 @@ function TransactionForm({ form, onSubmit, setForm }) {
               </option>
             ))}
           </Select>
+          <FieldError error={errors.category} />
           <Input
             aria-label="Valor"
+            aria-invalid={Boolean(errors.amount)}
+            className={cn(errors.amount && "border-red-400 focus:border-red-400")}
             min="0.01"
             placeholder="Valor"
-            required
             step="0.01"
             type="number"
-            value={form.amount}
-            onChange={(event) => setForm({ ...form, amount: event.target.value })}
+            {...register("amount")}
           />
+          <FieldError error={errors.amount} />
           <div
             aria-label="Tipo da transacao"
             className="grid grid-cols-2 rounded-lg border border-zinc-800 bg-zinc-950/60 p-1"
             role="group"
           >
             <Button
-              aria-pressed={form.type === "expense"}
-              className={cn(form.type === "expense" && "bg-rose-400/15 text-rose-300")}
+              aria-pressed={type === "expense"}
+              className={cn(type === "expense" && "bg-rose-400/15 text-rose-300")}
               size="sm"
               type="button"
               variant="ghost"
@@ -1012,8 +1084,8 @@ function TransactionForm({ form, onSubmit, setForm }) {
               Saida
             </Button>
             <Button
-              aria-pressed={form.type === "income"}
-              className={cn(form.type === "income" && "bg-emerald-400/15 text-emerald-300")}
+              aria-pressed={type === "income"}
+              className={cn(type === "income" && "bg-emerald-400/15 text-emerald-300")}
               size="sm"
               type="button"
               variant="ghost"
@@ -1023,8 +1095,8 @@ function TransactionForm({ form, onSubmit, setForm }) {
               Entrada
             </Button>
           </div>
-          <Button type="submit">
-            <Plus size={17} />
+          <Button disabled={isSubmitting} type="submit">
+            {isSubmitting ? <Loader2 className="animate-spin" size={17} /> : <Plus size={17} />}
             Adicionar transacao
           </Button>
         </form>
@@ -1037,27 +1109,39 @@ function TasksApp() {
   const [tasks, setTasks] = useState([]);
   const [filter, setFilter] = useState("all");
   const [deadlineFilter, setDeadlineFilter] = useState("all");
-  const [title, setTitle] = useState("");
-  const [priority, setPriority] = useState("media");
-  const [dueDate, setDueDate] = useState("");
+  const [viewMode, setViewMode] = useState("list");
   const [editingTask, setEditingTask] = useState(null);
   const [loading, setLoading] = useState(true);
+  const {
+    formState: { errors: taskErrors, isSubmitting: taskSubmitting },
+    handleSubmit: handleTaskSubmit,
+    register: registerTask,
+    reset: resetTask,
+  } = useForm({
+    defaultValues: { dueDate: "", priority: "media", title: "" },
+    resolver: zodResolver(taskFormSchema),
+  });
 
   async function loadTasks() {
     setLoading(true);
-    setTasks(await api("/api/tasks"));
-    setLoading(false);
+    try {
+      setTasks(await api("/api/tasks"));
+    } catch (requestError) {
+      toast.error(requestError.message);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
     loadTasks();
   }, []);
 
-  const visibleTasks = tasks.filter((task) => {
+  const deadlineTasks = tasks.filter((task) => taskMatchesDeadline(task, deadlineFilter));
+  const visibleTasks = deadlineTasks.filter((task) => {
     const matchesStatus =
       filter === "pending" ? !task.done : filter === "done" ? task.done : true;
-    const matchesDeadline = taskMatchesDeadline(task, deadlineFilter);
-    return matchesStatus && matchesDeadline;
+    return matchesStatus;
   });
 
   const counters = {
@@ -1066,24 +1150,31 @@ function TasksApp() {
     done: tasks.filter((task) => task.done).length,
   };
 
-  async function createTask(event) {
-    event.preventDefault();
-    const created = await api("/api/tasks", {
-      method: "POST",
-      body: JSON.stringify({ title, priority, dueDate: dueDate || null }),
-    });
-    setTasks((current) => [created, ...current]);
-    setTitle("");
-    setPriority("media");
-    setDueDate("");
+  async function createTask(data) {
+    try {
+      const created = await api("/api/tasks", {
+        method: "POST",
+        body: JSON.stringify({ ...data, dueDate: data.dueDate || null }),
+      });
+      setTasks((current) => [created, ...current]);
+      resetTask({ dueDate: "", priority: "media", title: "" });
+      toast.success("Tarefa adicionada.");
+    } catch (requestError) {
+      toast.error(requestError.message);
+    }
   }
 
   async function toggleTask(task) {
-    const updated = await api(`/api/tasks/${task.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ done: !task.done }),
-    });
-    setTasks((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+    try {
+      const updated = await api(`/api/tasks/${task.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ done: !task.done }),
+      });
+      setTasks((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      toast.success(updated.done ? "Tarefa concluida." : "Tarefa reaberta.");
+    } catch (requestError) {
+      toast.error(requestError.message);
+    }
   }
 
   function startEditingTask(task) {
@@ -1097,22 +1188,42 @@ function TasksApp() {
 
   async function saveTask(event) {
     event.preventDefault();
-    const updated = await api(`/api/tasks/${editingTask.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({
-        title: editingTask.title,
-        priority: editingTask.priority,
-        dueDate: editingTask.dueDate || null,
-      }),
-    });
-    setTasks((current) => current.map((item) => (item.id === updated.id ? updated : item)));
-    setEditingTask(null);
+    const result = taskFormSchema.safeParse(editingTask);
+    if (!result.success) {
+      toast.error(result.error.issues[0].message);
+      return;
+    }
+    try {
+      const updated = await api(`/api/tasks/${editingTask.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          title: result.data.title,
+          priority: result.data.priority,
+          dueDate: result.data.dueDate || null,
+        }),
+      });
+      setTasks((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setEditingTask(null);
+      toast.success("Tarefa atualizada.");
+    } catch (requestError) {
+      toast.error(requestError.message);
+    }
   }
 
   async function deleteTask(id) {
-    await api(`/api/tasks/${id}`, { method: "DELETE" });
-    setTasks((current) => current.filter((item) => item.id !== id));
-    if (editingTask?.id === id) setEditingTask(null);
+    try {
+      await api(`/api/tasks/${id}`, { method: "DELETE" });
+      setTasks((current) => current.filter((item) => item.id !== id));
+      if (editingTask?.id === id) setEditingTask(null);
+      toast.success("Tarefa removida.");
+    } catch (requestError) {
+      toast.error(requestError.message);
+    }
+  }
+
+  function editFromBoard(task) {
+    startEditingTask(task);
+    setViewMode("list");
   }
 
   return (
@@ -1163,14 +1274,16 @@ function TasksApp() {
             <CardDescription>Adicione o proximo item da sua rotina.</CardDescription>
           </CardHeader>
           <CardContent>
-            <form className="grid gap-3" onSubmit={createTask}>
+            <form className="grid gap-3" noValidate onSubmit={handleTaskSubmit(createTask)}>
               <Input
+                aria-label="Titulo da tarefa"
+                aria-invalid={Boolean(taskErrors.title)}
+                className={cn(taskErrors.title && "border-red-400 focus:border-red-400")}
                 placeholder="Titulo da tarefa"
-                required
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
+                {...registerTask("title")}
               />
-              <Select value={priority} onChange={(event) => setPriority(event.target.value)}>
+              <FieldError error={taskErrors.title} />
+              <Select aria-label="Prioridade da tarefa" {...registerTask("priority")}>
                 <option value="alta">Prioridade alta</option>
                 <option value="media">Prioridade media</option>
                 <option value="baixa">Prioridade baixa</option>
@@ -1180,12 +1293,11 @@ function TasksApp() {
                 <Input
                   aria-label="Prazo da tarefa"
                   type="date"
-                  value={dueDate}
-                  onChange={(event) => setDueDate(event.target.value)}
+                  {...registerTask("dueDate")}
                 />
               </label>
-              <Button type="submit">
-                <Plus size={17} />
+              <Button disabled={taskSubmitting} type="submit">
+                {taskSubmitting ? <Loader2 className="animate-spin" size={17} /> : <Plus size={17} />}
                 Adicionar tarefa
               </Button>
             </form>
@@ -1196,10 +1308,13 @@ function TasksApp() {
           <CardHeader className="gap-4 border-b border-zinc-800 xl:flex-row xl:items-center xl:justify-between">
             <div>
               <CardTitle>Minhas tarefas</CardTitle>
-              <CardDescription>{visibleTasks.length} itens neste filtro</CardDescription>
+              <CardDescription>
+                {viewMode === "board" ? deadlineTasks.length : visibleTasks.length} itens neste filtro
+              </CardDescription>
             </div>
             <div className="flex flex-wrap gap-2">
-              <div className="grid grid-cols-3 rounded-lg border border-zinc-800 bg-zinc-950/40 p-1">
+              {viewMode === "list" && (
+                <div className="grid grid-cols-3 rounded-lg border border-zinc-800 bg-zinc-950/40 p-1">
                 {[
                   ["all", "Todas"],
                   ["pending", "Pendentes"],
@@ -1216,7 +1331,8 @@ function TasksApp() {
                     {label}
                   </Button>
                 ))}
-              </div>
+                </div>
+              )}
               <Select
                 aria-label="Filtrar por prazo"
                 className="w-full sm:w-44"
@@ -1229,20 +1345,49 @@ function TasksApp() {
                 <option value="upcoming">Proximas</option>
                 <option value="none">Sem prazo</option>
               </Select>
+              <div
+                aria-label="Visualizacao das tarefas"
+                className="grid grid-cols-2 rounded-lg border border-zinc-800 bg-zinc-950/40 p-1"
+                role="group"
+              >
+                <Button
+                  aria-pressed={viewMode === "list"}
+                  className={cn(viewMode === "list" && "bg-zinc-700 text-zinc-50")}
+                  size="icon"
+                  title="Lista"
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setViewMode("list")}
+                >
+                  <List size={17} />
+                </Button>
+                <Button
+                  aria-pressed={viewMode === "board"}
+                  className={cn(viewMode === "board" && "bg-zinc-700 text-zinc-50")}
+                  size="icon"
+                  title="Kanban"
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setViewMode("board")}
+                >
+                  <Columns3 size={17} />
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="p-3 sm:p-4">
             {loading && <TaskListSkeleton />}
-            {!loading && !visibleTasks.length && (
+            {!loading && viewMode === "list" && !visibleTasks.length && (
               <EmptyState text="Nenhuma tarefa encontrada neste filtro." />
             )}
+            {viewMode === "list" ? (
             <div className="space-y-2">
               <AnimatePresence initial={false}>
                 {visibleTasks.map((task) => (
                   <motion.article
                     animate={{ opacity: 1, y: 0 }}
                     className={cn(
-                      "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-950/35 p-3",
+                      "grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-950/35 p-3 sm:grid-cols-[auto_minmax(0,1fr)_auto]",
                       task.done && "opacity-60",
                     )}
                     exit={{ opacity: 0, x: 20 }}
@@ -1319,7 +1464,7 @@ function TasksApp() {
                         </div>
                       </div>
                     )}
-                    <div className="flex gap-1">
+                    <div className="col-span-2 flex justify-end gap-1 sm:col-span-1">
                       {editingTask?.id === task.id ? (
                         <>
                           <Button
@@ -1367,9 +1512,105 @@ function TasksApp() {
                 ))}
               </AnimatePresence>
             </div>
+            ) : (
+              <KanbanBoard
+                tasks={deadlineTasks}
+                onDelete={deleteTask}
+                onEdit={editFromBoard}
+                onToggle={toggleTask}
+              />
+            )}
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+function KanbanBoard({ onDelete, onEdit, onToggle, tasks }) {
+  const columns = [
+    {
+      id: "pending",
+      title: "Pendentes",
+      description: "Itens que ainda precisam de acao",
+      tasks: tasks.filter((task) => !task.done),
+      tone: "text-amber-300",
+    },
+    {
+      id: "done",
+      title: "Concluidas",
+      description: "Itens finalizados no seu fluxo",
+      tasks: tasks.filter((task) => task.done),
+      tone: "text-emerald-300",
+    },
+  ];
+
+  return (
+    <div className="grid gap-3 lg:grid-cols-2">
+      {columns.map((column) => (
+        <section
+          className="min-w-0 rounded-lg border border-zinc-800 bg-zinc-950/30 p-3"
+          key={column.id}
+        >
+          <div className="mb-3 flex items-start justify-between gap-3 border-b border-zinc-800 pb-3">
+            <div>
+              <h3 className={cn("text-sm font-semibold", column.tone)}>{column.title}</h3>
+              <p className="mt-1 text-xs text-zinc-500">{column.description}</p>
+            </div>
+            <Badge variant="neutral">{column.tasks.length}</Badge>
+          </div>
+          <div className="space-y-2">
+            {!column.tasks.length && <EmptyState text={`Nenhuma tarefa em ${column.title.toLowerCase()}.`} />}
+            {column.tasks.map((task) => (
+              <motion.article
+                className="rounded-lg border border-zinc-800 bg-zinc-900/80 p-3"
+                key={task.id}
+                layout
+              >
+                <p className={cn("text-sm font-semibold text-zinc-100", task.done && "line-through text-zinc-500")}>
+                  {task.title}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <Badge variant={priorityVariant(task.priority)}>{task.priority}</Badge>
+                  <TaskDeadlineBadge task={task} />
+                </div>
+                <div className="mt-3 flex justify-end gap-1 border-t border-zinc-800 pt-3">
+                  <Button
+                    aria-label={task.done ? "Reabrir tarefa" : "Concluir tarefa"}
+                    size="icon"
+                    title={task.done ? "Reabrir" : "Concluir"}
+                    type="button"
+                    variant="secondary"
+                    onClick={() => onToggle(task)}
+                  >
+                    <CheckCircle2 size={16} />
+                  </Button>
+                  <Button
+                    aria-label="Editar tarefa no Kanban"
+                    size="icon"
+                    title="Editar"
+                    type="button"
+                    variant="ghost"
+                    onClick={() => onEdit(task)}
+                  >
+                    <Pencil size={16} />
+                  </Button>
+                  <Button
+                    aria-label="Remover tarefa do Kanban"
+                    size="icon"
+                    title="Remover"
+                    type="button"
+                    variant="destructive"
+                    onClick={() => onDelete(task.id)}
+                  >
+                    <Trash2 size={16} />
+                  </Button>
+                </div>
+              </motion.article>
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }
@@ -1383,6 +1624,11 @@ function TaskDeadlineBadge({ task }) {
       {deadline.label}
     </Badge>
   );
+}
+
+function FieldError({ error }) {
+  if (!error) return null;
+  return <p className="-mt-1 text-xs text-red-300">{typeof error === "string" ? error : error.message}</p>;
 }
 
 function PageHeading({ description, eyebrow, title }) {

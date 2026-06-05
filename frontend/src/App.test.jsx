@@ -120,6 +120,17 @@ describe("NexaFlow", () => {
     );
   });
 
+  it("valida email e senha antes de tentar entrar", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Entrar" }));
+
+    expect(screen.getByText("Informe um email valido.")).toBeInTheDocument();
+    expect(screen.getByText("A senha deve ter pelo menos 8 caracteres.")).toBeInTheDocument();
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
   it("carrega o painel financeiro com dados da API", async () => {
     localStorage.setItem("nexaflow-token", "token-test");
     render(<App />);
@@ -177,6 +188,18 @@ describe("NexaFlow", () => {
     expect(category).toHaveTextContent("Freelance");
   });
 
+  it("mostra validacao visual ao enviar uma transacao incompleta", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("nexaflow-token", "token-test");
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Adicionar transacao" }));
+
+    expect(screen.getByText("Informe uma descricao com pelo menos 2 caracteres.")).toBeInTheDocument();
+    expect(screen.getByText("Selecione uma categoria.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Descricao")).toHaveAttribute("aria-invalid", "true");
+  });
+
   it("navega para o Taskly e exibe as tarefas", async () => {
     const user = userEvent.setup();
     localStorage.setItem("nexaflow-token", "token-test");
@@ -225,5 +248,21 @@ describe("NexaFlow", () => {
         }),
       }),
     );
+  });
+
+  it("alterna entre lista e Kanban e move uma tarefa concluida", async () => {
+    const user = userEvent.setup();
+    responses["/api/tasks/task-test"] = { ...defaultTasks[0], done: true };
+    localStorage.setItem("nexaflow-token", "token-test");
+    render(<App />);
+
+    await user.click(await screen.findByTitle("Taskly"));
+    await user.click(await screen.findByTitle("Kanban"));
+
+    expect(screen.getByRole("heading", { name: "Pendentes" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Concluidas" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Concluir tarefa" }));
+
+    expect(await screen.findByRole("button", { name: "Reabrir tarefa" })).toBeInTheDocument();
   });
 });

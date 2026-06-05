@@ -57,3 +57,10 @@ button {
 .recharts-tooltip-label {
   color: #e4e4e7 !important;
 }
+
+.nexaflow-toast {
+  border: 1px solid #3f3f46 !important;
+  background: #18181b !important;
+  color: #f4f4f5 !important;
+  font-size: 14px !important;
+}

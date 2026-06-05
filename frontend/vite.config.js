@@ -13,6 +13,8 @@ export default defineConfig({
       output: {
         manualChunks: {
           charts: ["recharts"],
+          feedback: ["react-hot-toast"],
+          forms: ["react-hook-form", "@hookform/resolvers", "zod"],
           motion: ["framer-motion"],
           react: ["react", "react-dom"],
         },
