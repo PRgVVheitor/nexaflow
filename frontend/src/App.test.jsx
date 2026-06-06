@@ -61,6 +61,7 @@ const responses = {
 
 beforeEach(() => {
   localStorage.clear();
+  window.history.pushState({}, "", "/");
   responses["/api/transactions"] = defaultTransactions;
   responses["/api/tasks"] = defaultTasks;
   delete responses["/api/tasks/task-test"];
@@ -126,7 +127,7 @@ describe("NexaFlow", () => {
 
     await user.click(screen.getByRole("button", { name: "Entrar" }));
 
-    expect(screen.getByText("Informe um email valido.")).toBeInTheDocument();
+    expect(screen.getByText("Informe um email válido.")).toBeInTheDocument();
     expect(screen.getByText("A senha deve ter pelo menos 8 caracteres.")).toBeInTheDocument();
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
@@ -138,7 +139,7 @@ describe("NexaFlow", () => {
     expect(await screen.findByText("Heitor Teste")).toBeInTheDocument();
     expect(screen.queryByTitle("Estudos")).not.toBeInTheDocument();
     expect(await screen.findByText("Salario de teste")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Grafico de onda do saldo mensal" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Gráfico de onda do saldo mensal" })).toBeInTheDocument();
     expect(globalThis.fetch).toHaveBeenCalledWith(
       "http://127.0.0.1:3001/api/transactions",
       expect.any(Object),
@@ -152,9 +153,9 @@ describe("NexaFlow", () => {
 
     await user.click(await screen.findByRole("button", { name: "Comparar meses" }));
 
-    expect(screen.getByLabelText("Mes principal")).toBeInTheDocument();
-    expect(screen.getByLabelText("Mes para comparar")).toBeInTheDocument();
-    expect(screen.getByText("Diferenca de saldo entre os meses")).toBeInTheDocument();
+    expect(screen.getByLabelText("Mês principal")).toBeInTheDocument();
+    expect(screen.getByLabelText("Mês para comparar")).toBeInTheDocument();
+    expect(screen.getByText("Diferença de saldo entre os meses")).toBeInTheDocument();
   });
 
   it("exibe um estado vazio em vez de graficos zerados", async () => {
@@ -163,7 +164,7 @@ describe("NexaFlow", () => {
     render(<App />);
 
     expect(
-      await screen.findByText("Adicione transacoes para visualizar sua evolucao mensal."),
+      await screen.findByText("Adicione transações para visualizar sua evolução mensal."),
     ).toBeInTheDocument();
   });
 
@@ -173,8 +174,8 @@ describe("NexaFlow", () => {
     render(<App />);
 
     const category = await screen.findByLabelText("Categoria");
-    expect(category).toHaveTextContent("Alimentacao");
-    expect(screen.getByRole("button", { name: "Saida" })).toHaveAttribute(
+    expect(category).toHaveTextContent("Alimentação");
+    expect(screen.getByRole("button", { name: "Saída" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -193,11 +194,11 @@ describe("NexaFlow", () => {
     localStorage.setItem("nexaflow-token", "token-test");
     render(<App />);
 
-    await user.click(await screen.findByRole("button", { name: "Adicionar transacao" }));
+    await user.click(await screen.findByRole("button", { name: "Adicionar transação" }));
 
-    expect(screen.getByText("Informe uma descricao com pelo menos 2 caracteres.")).toBeInTheDocument();
+    expect(screen.getByText("Informe uma descrição com pelo menos 2 caracteres.")).toBeInTheDocument();
     expect(screen.getByText("Selecione uma categoria.")).toBeInTheDocument();
-    expect(screen.getByLabelText("Descricao")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Descrição")).toHaveAttribute("aria-invalid", "true");
   });
 
   it("navega para o Taskly e exibe as tarefas", async () => {
@@ -208,6 +209,7 @@ describe("NexaFlow", () => {
     await user.click(await screen.findByTitle("Taskly"));
 
     expect(await screen.findByRole("heading", { level: 1, name: "Taskly" })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/taskly");
     expect(await screen.findByText("Publicar NexaFlow")).toBeInTheDocument();
     expect(screen.getByText("Vence hoje")).toBeInTheDocument();
     expect(screen.getByLabelText("Prazo da tarefa")).toBeInTheDocument();
@@ -221,7 +223,7 @@ describe("NexaFlow", () => {
       ...defaultTasks[0],
       title: "Publicar versao final",
       priority: "baixa",
-      dueDate: null,
+      dueDate: todayDate,
     };
     localStorage.setItem("nexaflow-token", "token-test");
     render(<App />);
@@ -229,11 +231,14 @@ describe("NexaFlow", () => {
     await user.click(await screen.findByTitle("Taskly"));
     await user.click(await screen.findByRole("button", { name: "Editar tarefa" }));
 
-    const title = screen.getByLabelText("Editar titulo da tarefa");
+    const title = screen.getByLabelText("Editar título da tarefa");
+    const priority = screen.getByLabelText("Editar prioridade da tarefa");
+    expect(screen.getByRole("button", { name: "Salvar tarefa" })).toBeInTheDocument();
     await user.clear(title);
+    expect(screen.getByRole("button", { name: "Salvar tarefa" })).toBeInTheDocument();
     await user.type(title, "Publicar versao final");
-    await user.selectOptions(screen.getByLabelText("Editar prioridade da tarefa"), "baixa");
-    await user.clear(screen.getByLabelText("Editar prazo da tarefa"));
+    expect(screen.getByRole("button", { name: "Salvar tarefa" })).toBeInTheDocument();
+    await user.selectOptions(priority, "baixa");
     await user.click(screen.getByRole("button", { name: "Salvar tarefa" }));
 
     expect(await screen.findByText("Publicar versao final")).toBeInTheDocument();
@@ -244,10 +249,22 @@ describe("NexaFlow", () => {
         body: JSON.stringify({
           title: "Publicar versao final",
           priority: "baixa",
-          dueDate: null,
+          dueDate: todayDate,
         }),
       }),
     );
+  });
+
+  it("abre o calendário customizado para escolher o prazo", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("nexaflow-token", "token-test");
+    render(<App />);
+
+    await user.click(await screen.findByTitle("Taskly"));
+    await user.click(screen.getByLabelText("Prazo da tarefa"));
+
+    expect(screen.getByRole("button", { name: "Remover prazo" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Fechar" })).toBeInTheDocument();
   });
 
   it("alterna entre lista e Kanban e move uma tarefa concluida", async () => {
@@ -260,7 +277,7 @@ describe("NexaFlow", () => {
     await user.click(await screen.findByTitle("Kanban"));
 
     expect(screen.getByRole("heading", { name: "Pendentes" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Concluidas" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Concluídas" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Concluir tarefa" }));
 
     expect(await screen.findByRole("button", { name: "Reabrir tarefa" })).toBeInTheDocument();

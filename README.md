@@ -2,11 +2,11 @@
 
 [![CI](https://github.com/PRgVVheitor/nexaflow/actions/workflows/ci.yml/badge.svg)](https://github.com/PRgVVheitor/nexaflow/actions/workflows/ci.yml)
 
-Aplicacao full-stack para centralizar financas e produtividade em um painel unico.
+Aplicação full-stack para centralizar finanças e produtividade em um painel único.
 
 ## Objetivo
 
-Mostrar no GitHub um produto com separacao clara entre front-end e back-end, consumo de API, estado no React, rotas HTTP, migrations e persistencia em PostgreSQL.
+Mostrar no GitHub um produto com separação clara entre front-end e back-end, consumo de API, estado no React, rotas HTTP, migrations e persistência em PostgreSQL.
 
 ## Stack
 
@@ -18,6 +18,9 @@ Mostrar no GitHub um produto com separacao clara entre front-end e back-end, con
 - Recharts
 - Lucide React
 - React Hook Form
+- React Router DOM
+- React DayPicker
+- date-fns
 - React Hot Toast
 - Zod
 - Google Fonts / Inter
@@ -34,37 +37,39 @@ Mostrar no GitHub um produto com separacao clara entre front-end e back-end, con
 
 ## Funcionalidades
 
-- Dashboard financeiro responsivo com grafico de onda, selecao e comparacao mensal.
-- Estados vazios e skeletons de carregamento nos paineis.
-- Categorias financeiras padronizadas e seletor visual de entrada ou saida.
-- Cadastro e remocao de transacoes.
-- Taskly com criacao, edicao inline, prazos opcionais, conclusao, filtros e remocao de tarefas.
-- Visualizacao do Taskly em lista ou quadro Kanban.
-- Sinalizacao visual e filtros para tarefas atrasadas, de hoje, proximas ou sem prazo.
-- Indicadores do Taskly com numeros destacados e aneis de progresso.
-- Feedbacks com toasts e validacao visual nos formularios principais.
-- Cadastro, login, restauracao de sessao e logout.
-- Dados financeiros e tarefas isolados por usuario.
-- Senhas protegidas com bcrypt e sessoes assinadas com JWT.
+- Dashboard financeiro responsivo com gráfico de onda, legenda de categorias, seleção e comparação mensal.
+- Estados vazios e skeletons de carregamento nos painéis.
+- Categorias financeiras padronizadas e seletor visual de entrada ou saída.
+- Cadastro e remoção de transações.
+- Taskly com criação, edição inline, prazos opcionais, conclusão, filtros e remoção de tarefas.
+- Visualização do Taskly em lista ou quadro Kanban.
+- Navegação por rotas reais com React Router DOM.
+- Calendário customizado para selecionar prazos no Taskly.
+- Sinalização visual e filtros para tarefas atrasadas, de hoje, próximas ou sem prazo.
+- Indicadores do Taskly com números destacados e anéis de progresso.
+- Feedbacks com toasts e validação visual nos formulários principais.
+- Cadastro, login, restauração de sessão e logout.
+- Dados financeiros e tarefas isolados por usuário.
+- Senhas protegidas com bcrypt e sessões assinadas com JWT.
 - Rate limiting nas rotas de login e cadastro.
-- Validacao de entradas e variaveis de ambiente com Zod.
+- Validação de entradas e variáveis de ambiente com Zod.
 - Respostas de erro padronizadas na API.
 - Componentes reutilizaveis: Card, Button, Input, Badge, Table e Select.
-- Animacoes e transicoes com Framer Motion.
-- Persistencia em PostgreSQL com Prisma ORM.
-- Migration inicial e seed reproduzivel.
+- Animações e transições com Framer Motion.
+- Persistência em PostgreSQL com Prisma ORM.
+- Migration inicial e seed reproduzível.
 - Blueprint do Render para criar API e banco.
 
 ## Como rodar com Docker
 
-Tenha o Docker Desktop e o Node.js instalados. Instale as dependencias do backend:
+Tenha o Docker Desktop e o Node.js instalados. Instale as dependências do backend:
 
 ```bash
 cd backend
 npm install
 ```
 
-Depois instale as dependencias do frontend:
+Depois instale as dependências do frontend:
 
 ```bash
 cd ../frontend
@@ -72,7 +77,7 @@ npm install
 cd ..
 ```
 
-Crie `backend/.env` com base em `backend/.env.example`. A configuracao de exemplo ja aponta para o PostgreSQL do Docker. Em producao, `CLIENT_ORIGIN` e obrigatoria e `JWT_SECRET` precisa ter pelo menos 32 caracteres:
+Crie `backend/.env` com base em `backend/.env.example`. A configuração de exemplo já aponta para o PostgreSQL do Docker. Em produção, `CLIENT_ORIGIN` é obrigatória e `JWT_SECRET` precisa ter pelo menos 32 caracteres:
 
 ```env
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nexaflow?schema=public"
@@ -84,13 +89,13 @@ NODE_ENV="development"
 
 Para apontar o frontend para outra API, crie `frontend/.env` com base em `frontend/.env.example`.
 
-Na primeira execucao, construa a API, suba a API e o PostgreSQL, aplique as migrations e carregue os dados demonstrativos:
+Na primeira execução, construa a API, suba a API e o PostgreSQL, aplique as migrations e carregue os dados demonstrativos:
 
 ```bash
 npm run db:bootstrap
 ```
 
-Nas proximas execucoes, basta subir a API e o banco:
+Nas próximas execuções, basta subir a API e o banco:
 
 ```bash
 npm run docker:up
@@ -114,15 +119,15 @@ Conta demonstrativa:
 
 ## Banco de dados
 
-O arquivo `compose.yaml` executa a API Node e o PostgreSQL 17 em containers. O banco usa um volume persistente e continua salvo quando os containers sao desligados.
+O arquivo `compose.yaml` executa a API Node e o PostgreSQL 17 em containers. O banco usa um volume persistente e continua salvo quando os containers são desligados.
 
 O schema fica em `backend/prisma/schema.prisma` e possui:
 
-- `Transaction`: entradas e saidas financeiras.
+- `Transaction`: entradas e saídas financeiras.
 - `Task`: tarefas, prioridades e prazos opcionais do Taskly.
 - `User`: contas, credenciais protegidas e relacionamento com os dados privados.
 
-Comandos uteis:
+Comandos úteis:
 
 ```bash
 npm run docker:up
@@ -145,7 +150,7 @@ npm run db:bootstrap
 
 > `docker:reset` remove todos os dados locais do PostgreSQL.
 
-Para desenvolver o backend com recarregamento automatico, suba somente o PostgreSQL e execute o Node localmente:
+Para desenvolver o backend com recarregamento automático, suba somente o PostgreSQL e execute o Node localmente:
 
 ```bash
 npm run docker:up:db
@@ -154,9 +159,9 @@ npm run dev:backend
 
 ## Deploy do backend
 
-O arquivo `render.yaml` cria uma API Node e um PostgreSQL no Render, aplica as migrations e sincroniza o seed demonstrativo em cada deploy. O seed usa `upsert`: garante os dados de demonstracao sem apagar contas, tarefas ou transacoes existentes. Durante o deploy, configure `CLIENT_ORIGIN` com a URL publicada do frontend.
+O arquivo `render.yaml` cria uma API Node e um PostgreSQL no Render, aplica as migrations e sincroniza o seed demonstrativo em cada deploy. O seed usa `upsert`: garante os dados de demonstração sem apagar contas, tarefas ou transações existentes. Durante o deploy, configure `CLIENT_ORIGIN` com a URL publicada do frontend.
 
-## Testes e integracao continua
+## Testes e integração contínua
 
 Com PostgreSQL ativo, execute toda a suite local:
 
@@ -164,10 +169,10 @@ Com PostgreSQL ativo, execute toda a suite local:
 npm test
 ```
 
-Os testes do backend validam autenticacao, isolamento entre usuarios e rotas HTTP contra PostgreSQL real. Os testes do frontend verificam login, cadastro, carregamento do dashboard e navegacao para o Taskly com uma API simulada.
+Os testes do backend validam autenticação, isolamento entre usuários e rotas HTTP contra PostgreSQL real. Os testes do frontend verificam login, cadastro, carregamento do dashboard e navegação para o Taskly com uma API simulada.
 
-O workflow `.github/workflows/ci.yml` cria um PostgreSQL temporario e executa migrations, testes e build automaticamente em cada push e pull request.
+O workflow `.github/workflows/ci.yml` cria um PostgreSQL temporário e executa migrations, testes e build automaticamente em cada push e pull request.
 
-## Proximas melhorias
+## Próximas melhorias
 
 - Publicar o frontend e conectar ao backend hospedado.

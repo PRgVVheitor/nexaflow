@@ -9,6 +9,7 @@ import {
   startOfDay,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { DayPicker } from "react-day-picker";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -39,7 +40,15 @@ import {
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import { z } from "zod";
 import {
   Area,
@@ -89,8 +98,8 @@ const longMonth = new Intl.DateTimeFormat("pt-BR", {
 });
 
 const tabs = [
-  { id: "finance", label: "Financas", icon: DollarSign },
-  { id: "tasks", label: "Taskly", icon: ClipboardList },
+  { id: "finance", label: "Finanças", icon: DollarSign, path: "/financas" },
+  { id: "tasks", label: "Taskly", icon: ClipboardList, path: "/taskly" },
 ];
 
 const chartColors = ["#34d399", "#60a5fa", "#fbbf24", "#fb7185", "#a78bfa"];
@@ -110,16 +119,16 @@ const transactionCategories = {
 const transactionFormSchema = z.object({
   amount: z.coerce.number({ error: "Informe um valor." }).positive("O valor deve ser maior que zero."),
   category: z.string().min(1, "Selecione uma categoria."),
-  description: z.string().trim().min(2, "Informe uma descricao com pelo menos 2 caracteres."),
+  description: z.string().trim().min(2, "Informe uma descrição com pelo menos 2 caracteres."),
   type: z.enum(["income", "expense"]),
 });
 const taskFormSchema = z.object({
   dueDate: z.string().optional(),
   priority: z.enum(["alta", "media", "baixa"]),
-  title: z.string().trim().min(2, "Informe um titulo com pelo menos 2 caracteres."),
+  title: z.string().trim().min(2, "Informe um título com pelo menos 2 caracteres."),
 });
 const loginFormSchema = z.object({
-  email: z.string().trim().email("Informe um email valido."),
+  email: z.string().trim().email("Informe um email válido."),
   password: z.string().min(8, "A senha deve ter pelo menos 8 caracteres."),
 });
 const registerFormSchema = loginFormSchema.extend({
@@ -150,9 +159,19 @@ async function api(path, options = {}) {
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState("finance");
+  return (
+    <BrowserRouter>
+      <AppContent />
+    </BrowserRouter>
+  );
+}
+
+function AppContent() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const activeTab = location.pathname === "/taskly" ? "tasks" : "finance";
 
   useEffect(() => {
     if (!localStorage.getItem(tokenKey)) {
@@ -169,13 +188,14 @@ function App() {
   function authenticate(response) {
     localStorage.setItem(tokenKey, response.token);
     setUser(response.user);
+    navigate("/financas");
   }
 
   function logout() {
     localStorage.removeItem(tokenKey);
     setUser(null);
-    setActiveTab("finance");
-    toast.success("Sessao encerrada.");
+    navigate("/");
+    toast.success("Sessão encerrada.");
   }
 
   if (authLoading) {
@@ -196,14 +216,14 @@ function App() {
           <div className="min-w-0">
             <p className="text-lg font-bold text-zinc-50">NexaFlow</p>
             <p className="truncate text-sm text-zinc-500">
-              Financas e produtividade conectadas
+              Finanças e produtividade conectadas
             </p>
           </div>
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <nav
-            aria-label="Navegacao principal"
+            aria-label="Navegação principal"
             className="grid grid-cols-2 rounded-lg border border-zinc-800 bg-zinc-900/70 p-1"
           >
             {tabs.map((tab) => {
@@ -215,7 +235,7 @@ function App() {
                   title={tab.label}
                   type="button"
                   variant="ghost"
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => navigate(tab.path)}
                 >
                   {activeTab === tab.id && (
                     <motion.span
@@ -243,18 +263,11 @@ function App() {
         </div>
       </header>
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          initial={{ opacity: 0, y: 12 }}
-          key={activeTab}
-          transition={{ duration: 0.25 }}
-        >
-          {activeTab === "finance" && <FinanceDashboard />}
-          {activeTab === "tasks" && <TasksApp />}
-        </motion.div>
-      </AnimatePresence>
+      <Routes>
+        <Route element={<FinanceDashboard />} path="/financas" />
+        <Route element={<TasksApp />} path="/taskly" />
+        <Route element={<Navigate replace to="/financas" />} path="*" />
+      </Routes>
     </main>
   );
 }
@@ -338,7 +351,7 @@ function AuthScreen({ onAuthenticated }) {
             </div>
             <p className="mt-5 text-xl font-bold text-zinc-50">NexaFlow</p>
             <h1 className="mt-8 max-w-xl text-3xl font-bold leading-tight text-zinc-50 sm:text-5xl">
-              Sua rotina organizada em um unico fluxo.
+              Sua rotina organizada em um único fluxo.
             </h1>
             <p className="mt-4 max-w-xl text-sm leading-7 text-zinc-400 sm:text-base">
               Acompanhe suas financas e tarefas em um ambiente privado, conectado e
@@ -348,9 +361,9 @@ function AuthScreen({ onAuthenticated }) {
 
           <div className="mt-10 grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
             {[
-              ["Financas pessoais", "Transacoes e graficos protegidos por conta."],
+              ["Finanças pessoais", "Transações e gráficos protegidos por conta."],
               ["Taskly", "Tarefas e prioridades sincronizadas."],
-              ["Sessao segura", "Senhas protegidas e acesso autenticado."],
+              ["Sessão segura", "Senhas protegidas e acesso autenticado."],
             ].map(([title, description]) => (
               <div className="flex gap-3 rounded-lg border border-zinc-800 bg-zinc-950/35 p-3" key={title}>
                 <ShieldCheck className="mt-0.5 shrink-0 text-emerald-300" size={18} />
@@ -373,7 +386,7 @@ function AuthScreen({ onAuthenticated }) {
             </h2>
             <p className="mt-2 text-sm leading-6 text-zinc-500">
               {isRegister
-                ? "Seus dados ficarao separados e protegidos."
+                ? "Seus dados ficarão separados e protegidos."
                 : "Continue de onde parou em poucos segundos."}
             </p>
           </div>
@@ -450,7 +463,7 @@ function AuthScreen({ onAuthenticated }) {
                 setFieldErrors({});
               }}
             >
-              {isRegister ? "Ja tenho uma conta" : "Criar uma nova conta"}
+              {isRegister ? "Já tenho uma conta" : "Criar uma nova conta"}
             </Button>
           </div>
         </section>
@@ -535,7 +548,7 @@ function FinanceDashboard() {
         return result;
       }, {});
 
-    return Object.entries(grouped).map(([name, value]) => ({ name, value }));
+    return Object.entries(grouped).map(([name, value]) => ({ name: displayCategory(name), value }));
   }, [filteredTransactions]);
 
   const monthlyData = useMemo(() => {
@@ -586,13 +599,13 @@ function FinanceDashboard() {
     {
       name: selectedMonthData.label,
       Entradas: selectedMonthData.income,
-      Saidas: selectedMonthData.expense,
+      Saídas: selectedMonthData.expense,
       Saldo: selectedMonthData.net,
     },
     {
       name: comparisonMonthData.label,
       Entradas: comparisonMonthData.income,
-      Saidas: comparisonMonthData.expense,
+      Saídas: comparisonMonthData.expense,
       Saldo: comparisonMonthData.net,
     },
   ];
@@ -606,7 +619,7 @@ function FinanceDashboard() {
         body: JSON.stringify(data),
       });
       setTransactions((current) => [created, ...current]);
-      toast.success("Transacao adicionada.");
+      toast.success("Transação adicionada.");
       return true;
     } catch (requestError) {
       toast.error(requestError.message);
@@ -618,7 +631,7 @@ function FinanceDashboard() {
     try {
       await api(`/api/transactions/${id}`, { method: "DELETE" });
       setTransactions((current) => current.filter((item) => item.id !== id));
-      toast.success("Transacao removida.");
+      toast.success("Transação removida.");
     } catch (requestError) {
       toast.error(requestError.message);
     }
@@ -628,21 +641,21 @@ function FinanceDashboard() {
     {
       title: "Saldo atual",
       value: currency.format(totals.balance),
-      detail: "Disponivel no periodo",
+      detail: "Disponível no período",
       icon: WalletCards,
       tone: "emerald",
     },
     {
       title: "Entradas",
       value: currency.format(totals.income),
-      detail: `${filteredTransactions.filter((item) => item.type === "income").length} lancamentos`,
+      detail: `${filteredTransactions.filter((item) => item.type === "income").length} lançamentos`,
       icon: ArrowUpRight,
       tone: "sky",
     },
     {
-      title: "Saidas",
+      title: "Saídas",
       value: currency.format(totals.expense),
-      detail: `${filteredTransactions.filter((item) => item.type === "expense").length} lancamentos`,
+      detail: `${filteredTransactions.filter((item) => item.type === "expense").length} lançamentos`,
       icon: ArrowDownRight,
       tone: "rose",
     },
@@ -658,9 +671,9 @@ function FinanceDashboard() {
   return (
     <div className="space-y-5">
       <PageHeading
-        description="Acompanhe o fluxo financeiro, compare entradas e saidas e entenda para onde seu dinheiro esta indo."
+        description="Acompanhe o fluxo financeiro, compare entradas e saídas e entenda para onde seu dinheiro está indo."
         eyebrow="Painel financeiro"
-        title="Visao geral"
+        title="Visão geral"
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:sticky xl:top-2 xl:z-20 xl:grid-cols-4 xl:rounded-lg xl:bg-zinc-950/90 xl:py-2 xl:backdrop-blur">
@@ -673,8 +686,8 @@ function FinanceDashboard() {
 
       <div className="grid gap-4 xl:grid-cols-2">
         <ChartCard
-          description="Comparativo consolidado do periodo"
-          title="Entradas x saidas"
+          description="Comparativo consolidado do período"
+          title="Entradas x saídas"
         >
           {loading ? (
             <ChartSkeleton />
@@ -683,7 +696,7 @@ function FinanceDashboard() {
             <BarChart
               data={[
                 { name: "Entradas", valor: totals.income },
-                { name: "Saidas", valor: totals.expense },
+                { name: "Saídas", valor: totals.expense },
               ]}
             >
               <CartesianGrid stroke="#27272a" strokeDasharray="4 4" vertical={false} />
@@ -693,43 +706,58 @@ function FinanceDashboard() {
                 cursor={{ fill: "#27272a", opacity: 0.45 }}
                 formatter={(value) => currency.format(value)}
               />
-              <Bar dataKey="valor" radius={[6, 6, 0, 0]}>
+              <Bar barSize={72} dataKey="valor" maxBarSize={72} radius={[7, 7, 0, 0]}>
                 <Cell fill="#34d399" />
                 <Cell fill="#fb7185" />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
           ) : (
-            <EmptyState text="Adicione transacoes para visualizar entradas e saidas." />
+            <EmptyState text="Adicione transações para visualizar entradas e saídas." />
           )}
         </ChartCard>
 
         <ChartCard
-          description="Distribuicao das despesas por categoria"
+          description="Distribuição das despesas por categoria"
           title="Gastos por categoria"
         >
           {loading ? (
             <ChartSkeleton variant="donut" />
           ) : expenseByCategory.length ? (
-            <ResponsiveContainer height="100%" width="100%">
-              <PieChart>
-                <Pie
-                  data={expenseByCategory}
-                  dataKey="value"
-                  innerRadius={62}
-                  nameKey="name"
-                  outerRadius={98}
-                  paddingAngle={3}
-                >
-                  {expenseByCategory.map((item, index) => (
-                    <Cell fill={chartColors[index % chartColors.length]} key={item.name} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => currency.format(value)} />
-              </PieChart>
-            </ResponsiveContainer>
+            <div className="flex h-full flex-col">
+              <div className="min-h-0 flex-1">
+                <ResponsiveContainer height="100%" width="100%">
+                  <PieChart>
+                    <Pie
+                      data={expenseByCategory}
+                      dataKey="value"
+                      innerRadius={56}
+                      nameKey="name"
+                      outerRadius={88}
+                      paddingAngle={3}
+                    >
+                      {expenseByCategory.map((item, index) => (
+                        <Cell fill={chartColors[index % chartColors.length]} key={item.name} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => currency.format(value)} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 border-t border-zinc-800 pt-3">
+                {expenseByCategory.map((item, index) => (
+                  <div className="flex items-center gap-2 text-xs text-zinc-400" key={item.name}>
+                    <span
+                      className="size-2.5 rounded-full"
+                      style={{ backgroundColor: chartColors[index % chartColors.length] }}
+                    />
+                    <span>{item.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : (
-            <EmptyState text="Adicione uma saida para visualizar o grafico." />
+            <EmptyState text="Adicione uma saída para visualizar o gráfico." />
           )}
         </ChartCard>
       </div>
@@ -738,7 +766,7 @@ function FinanceDashboard() {
         actions={
           <div className="grid gap-2 sm:min-w-[430px]">
             <div
-              aria-label="Modo do grafico financeiro"
+              aria-label="Modo do gráfico financeiro"
               className="grid grid-cols-2 rounded-md border border-zinc-800 bg-zinc-950/60 p-1"
               role="group"
             >
@@ -750,7 +778,7 @@ function FinanceDashboard() {
                 onClick={() => setChartMode("evolution")}
               >
                 <CalendarDays size={15} />
-                Evolucao
+                Evolução
               </Button>
               <Button
                 className="min-h-8 h-8"
@@ -766,7 +794,7 @@ function FinanceDashboard() {
 
             <div className={cn("grid gap-2", chartMode === "comparison" && "grid-cols-2")}>
               <Select
-                aria-label="Mes principal"
+                aria-label="Mês principal"
                 value={selectedMonth}
                 onChange={(event) => setSelectedMonth(event.target.value)}
               >
@@ -781,7 +809,7 @@ function FinanceDashboard() {
               </Select>
               {chartMode === "comparison" && (
                 <Select
-                  aria-label="Mes para comparar"
+                  aria-label="Mês para comparar"
                   value={comparisonMonth}
                   onChange={(event) => setComparisonMonth(event.target.value)}
                 >
@@ -805,15 +833,15 @@ function FinanceDashboard() {
         contentClassName="h-80"
         description={
           chartMode === "evolution"
-            ? "A onda mostra o ritmo do saldo. Clique em um ponto para selecionar o mes."
-            : "Compare entradas, saidas e saldo entre dois meses."
+            ? "A onda mostra o ritmo do saldo. Clique em um ponto para selecionar o mês."
+            : "Compare entradas, saídas e saldo entre dois meses."
         }
-        title={chartMode === "evolution" ? "Fluxo mensal do saldo" : "Comparacao mensal"}
+        title={chartMode === "evolution" ? "Fluxo mensal do saldo" : "Comparação mensal"}
       >
         {loading ? (
           <ChartSkeleton />
         ) : !hasFinancialActivity ? (
-          <EmptyState text="Adicione transacoes para visualizar sua evolucao mensal." />
+          <EmptyState text="Adicione transações para visualizar sua evolução mensal." />
         ) : chartMode === "evolution" ? (
             <motion.div
               animate={{ opacity: 1 }}
@@ -821,7 +849,7 @@ function FinanceDashboard() {
               initial={{ opacity: 0 }}
               key="evolution"
             >
-              <div aria-label="Grafico de onda do saldo mensal" className="h-full" role="img">
+              <div aria-label="Gráfico de onda do saldo mensal" className="h-full" role="img">
                 <ResponsiveContainer height="100%" width="100%">
                 <AreaChart data={monthlyData}>
                   <defs>
@@ -866,7 +894,7 @@ function FinanceDashboard() {
             >
               <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-zinc-800 bg-zinc-950/45 px-3 py-2 text-sm">
                 <span className="text-zinc-400">
-                  Diferenca de saldo entre os meses
+                  Diferença de saldo entre os meses
                 </span>
                 <strong className={comparisonDelta >= 0 ? "text-emerald-300" : "text-rose-300"}>
                   {comparisonDelta >= 0 ? "+" : ""}
@@ -884,7 +912,7 @@ function FinanceDashboard() {
                       cursor={{ fill: "#27272a", opacity: 0.35 }}
                     />
                     <Bar dataKey="Entradas" fill="#34d399" radius={[5, 5, 0, 0]} />
-                    <Bar dataKey="Saidas" fill="#fb7185" radius={[5, 5, 0, 0]} />
+                    <Bar dataKey="Saídas" fill="#fb7185" radius={[5, 5, 0, 0]} />
                     <Bar dataKey="Saldo" fill="#60a5fa" radius={[5, 5, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -897,7 +925,7 @@ function FinanceDashboard() {
         <Card>
           <CardHeader className="gap-4 border-b border-zinc-800">
             <div>
-              <CardTitle>Transacoes recentes</CardTitle>
+              <CardTitle>Transações recentes</CardTitle>
               <CardDescription>Dados sincronizados com a API Node.</CardDescription>
             </div>
             <div className="grid gap-2 sm:grid-cols-[1fr_180px]">
@@ -907,9 +935,9 @@ function FinanceDashboard() {
                   size={16}
                 />
                 <Input
-                  aria-label="Buscar transacao"
+                  aria-label="Buscar transação"
                   className="pl-9"
-                  placeholder="Buscar transacao"
+                  placeholder="Buscar transação"
                   type="search"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
@@ -923,7 +951,7 @@ function FinanceDashboard() {
                 <option value="all">Todas as categorias</option>
                 {categories.map((category) => (
                   <option key={category} value={category}>
-                    {category}
+                    {displayCategory(category)}
                   </option>
                 ))}
               </Select>
@@ -934,14 +962,14 @@ function FinanceDashboard() {
             {error && <p className="p-5 text-sm text-red-300">{error}</p>}
             {!loading && !filteredTransactions.length && !error && (
               <div className="p-5">
-                <EmptyState text="Nenhuma transacao encontrada para os filtros selecionados." />
+                <EmptyState text="Nenhuma transação encontrada para os filtros selecionados." />
               </div>
             )}
             {!loading && filteredTransactions.length > 0 && (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Descricao</TableHead>
+                    <TableHead>Descrição</TableHead>
                     <TableHead>Categoria</TableHead>
                     <TableHead>Tipo</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
@@ -955,11 +983,11 @@ function FinanceDashboard() {
                         {transaction.description}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="neutral">{transaction.category}</Badge>
+                        <Badge variant="neutral">{displayCategory(transaction.category)}</Badge>
                       </TableCell>
                       <TableCell>
                         <Badge variant={transaction.type === "income" ? "success" : "danger"}>
-                          {transaction.type === "income" ? "Entrada" : "Saida"}
+                          {transaction.type === "income" ? "Entrada" : "Saída"}
                         </Badge>
                       </TableCell>
                       <TableCell
@@ -974,7 +1002,7 @@ function FinanceDashboard() {
                       </TableCell>
                       <TableCell>
                         <Button
-                          aria-label="Remover transacao"
+                          aria-label="Remover transação"
                           size="icon"
                           type="button"
                           variant="destructive"
@@ -1027,16 +1055,16 @@ function TransactionForm({ onCreate }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Nova transacao</CardTitle>
-        <CardDescription>Registre uma entrada ou saida no painel.</CardDescription>
+        <CardTitle>Nova transação</CardTitle>
+        <CardDescription>Registre uma entrada ou saída no painel.</CardDescription>
       </CardHeader>
       <CardContent>
         <form className="grid gap-3" noValidate onSubmit={handleSubmit(submit)}>
           <Input
-            aria-label="Descricao"
+            aria-label="Descrição"
             aria-invalid={Boolean(errors.description)}
             className={cn(errors.description && "border-red-400 focus:border-red-400")}
-            placeholder="Descricao"
+            placeholder="Descrição"
             {...register("description")}
           />
           <FieldError error={errors.description} />
@@ -1051,7 +1079,7 @@ function TransactionForm({ onCreate }) {
             </option>
             {categories.map((category) => (
               <option key={category} value={category}>
-                {category}
+                {displayCategory(category)}
               </option>
             ))}
           </Select>
@@ -1068,7 +1096,7 @@ function TransactionForm({ onCreate }) {
           />
           <FieldError error={errors.amount} />
           <div
-            aria-label="Tipo da transacao"
+            aria-label="Tipo da transação"
             className="grid grid-cols-2 rounded-lg border border-zinc-800 bg-zinc-950/60 p-1"
             role="group"
           >
@@ -1081,7 +1109,7 @@ function TransactionForm({ onCreate }) {
               onClick={() => selectType("expense")}
             >
               <ArrowDownRight size={16} />
-              Saida
+              Saída
             </Button>
             <Button
               aria-pressed={type === "income"}
@@ -1097,7 +1125,7 @@ function TransactionForm({ onCreate }) {
           </div>
           <Button disabled={isSubmitting} type="submit">
             {isSubmitting ? <Loader2 className="animate-spin" size={17} /> : <Plus size={17} />}
-            Adicionar transacao
+            Adicionar transação
           </Button>
         </form>
       </CardContent>
@@ -1113,6 +1141,7 @@ function TasksApp() {
   const [editingTask, setEditingTask] = useState(null);
   const [loading, setLoading] = useState(true);
   const {
+    control: taskControl,
     formState: { errors: taskErrors, isSubmitting: taskSubmitting },
     handleSubmit: handleTaskSubmit,
     register: registerTask,
@@ -1171,7 +1200,7 @@ function TasksApp() {
         body: JSON.stringify({ done: !task.done }),
       });
       setTasks((current) => current.map((item) => (item.id === updated.id ? updated : item)));
-      toast.success(updated.done ? "Tarefa concluida." : "Tarefa reaberta.");
+      toast.success(updated.done ? "Tarefa concluída." : "Tarefa reaberta.");
     } catch (requestError) {
       toast.error(requestError.message);
     }
@@ -1229,7 +1258,7 @@ function TasksApp() {
   return (
     <div className="space-y-5">
       <PageHeading
-        description="Capture tarefas, defina prazos e acompanhe o que precisa de atencao."
+        description="Capture tarefas, defina prazos e acompanhe o que precisa de atenção."
         eyebrow="Organizador de tarefas"
         title="Taskly"
       />
@@ -1248,7 +1277,7 @@ function TasksApp() {
               value={counters.total}
             />
             <TaskStatCard
-              detail="Aguardando acao"
+              detail="Aguardando ação"
               index={1}
               progress={counters.total ? (counters.pending / counters.total) * 100 : 0}
               title="Pendentes"
@@ -1259,7 +1288,7 @@ function TasksApp() {
               detail="Progresso registrado"
               index={2}
               progress={counters.total ? (counters.done / counters.total) * 100 : 0}
-              title="Concluidas"
+              title="Concluídas"
               tone="emerald"
               value={counters.done}
             />
@@ -1271,29 +1300,35 @@ function TasksApp() {
         <Card>
           <CardHeader>
             <CardTitle>Nova tarefa</CardTitle>
-            <CardDescription>Adicione o proximo item da sua rotina.</CardDescription>
+            <CardDescription>Adicione o próximo item da sua rotina.</CardDescription>
           </CardHeader>
           <CardContent>
             <form className="grid gap-3" noValidate onSubmit={handleTaskSubmit(createTask)}>
               <Input
-                aria-label="Titulo da tarefa"
+                aria-label="Título da tarefa"
                 aria-invalid={Boolean(taskErrors.title)}
                 className={cn(taskErrors.title && "border-red-400 focus:border-red-400")}
-                placeholder="Titulo da tarefa"
+                placeholder="Título da tarefa"
                 {...registerTask("title")}
               />
               <FieldError error={taskErrors.title} />
               <Select aria-label="Prioridade da tarefa" {...registerTask("priority")}>
                 <option value="alta">Prioridade alta</option>
-                <option value="media">Prioridade media</option>
+                <option value="media">Prioridade média</option>
                 <option value="baixa">Prioridade baixa</option>
               </Select>
               <label className="grid gap-1.5 text-xs font-medium text-zinc-400">
                 Prazo opcional
-                <Input
-                  aria-label="Prazo da tarefa"
-                  type="date"
-                  {...registerTask("dueDate")}
+                <Controller
+                  control={taskControl}
+                  name="dueDate"
+                  render={({ field }) => (
+                    <DatePicker
+                      label="Prazo da tarefa"
+                      value={field.value}
+                      onChange={field.onChange}
+                    />
+                  )}
                 />
               </label>
               <Button disabled={taskSubmitting} type="submit">
@@ -1318,7 +1353,7 @@ function TasksApp() {
                 {[
                   ["all", "Todas"],
                   ["pending", "Pendentes"],
-                  ["done", "Concluidas"],
+                  ["done", "Concluídas"],
                 ].map(([id, label]) => (
                   <Button
                     className={cn(filter === id && "bg-zinc-700 text-zinc-50")}
@@ -1342,11 +1377,11 @@ function TasksApp() {
                 <option value="all">Todos os prazos</option>
                 <option value="overdue">Atrasadas</option>
                 <option value="today">Vencem hoje</option>
-                <option value="upcoming">Proximas</option>
+                <option value="upcoming">Próximas</option>
                 <option value="none">Sem prazo</option>
               </Select>
               <div
-                aria-label="Visualizacao das tarefas"
+                aria-label="Visualização das tarefas"
                 className="grid grid-cols-2 rounded-lg border border-zinc-800 bg-zinc-950/40 p-1"
                 role="group"
               >
@@ -1407,12 +1442,11 @@ function TasksApp() {
                     </Button>
                     {editingTask?.id === task.id ? (
                       <form
-                        className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_135px_150px]"
-                        id={`edit-task-${task.id}`}
+                        className="grid min-w-0 gap-2 sm:col-span-2 sm:grid-cols-[minmax(0,1fr)_135px_150px_auto]"
                         onSubmit={saveTask}
                       >
                         <Input
-                          aria-label="Editar titulo da tarefa"
+                          aria-label="Editar título da tarefa"
                           required
                           value={editingTask.title}
                           onChange={(event) =>
@@ -1433,20 +1467,33 @@ function TasksApp() {
                           }
                         >
                           <option value="alta">Alta</option>
-                          <option value="media">Media</option>
+                          <option value="media">Média</option>
                           <option value="baixa">Baixa</option>
                         </Select>
-                        <Input
-                          aria-label="Editar prazo da tarefa"
-                          type="date"
+                        <DatePicker
+                          label="Editar prazo da tarefa"
                           value={editingTask.dueDate}
                           onChange={(event) =>
                             setEditingTask((current) => ({
                               ...current,
-                              dueDate: event.target.value,
+                              dueDate: event,
                             }))
                           }
                         />
+                        <div className="flex justify-end gap-1">
+                          <Button aria-label="Salvar tarefa" size="icon" type="submit">
+                            <Save size={16} />
+                          </Button>
+                          <Button
+                            aria-label="Cancelar edição"
+                            size="icon"
+                            type="button"
+                            variant="ghost"
+                            onClick={() => setEditingTask(null)}
+                          >
+                            <X size={17} />
+                          </Button>
+                        </div>
                       </form>
                     ) : (
                       <div className="min-w-0">
@@ -1459,34 +1506,15 @@ function TasksApp() {
                           {task.title}
                         </p>
                         <div className="mt-1 flex flex-wrap gap-1.5">
-                          <Badge variant={priorityVariant(task.priority)}>{task.priority}</Badge>
+                          <Badge variant={priorityVariant(task.priority)}>
+                            {displayPriority(task.priority)}
+                          </Badge>
                           <TaskDeadlineBadge task={task} />
                         </div>
                       </div>
                     )}
-                    <div className="col-span-2 flex justify-end gap-1 sm:col-span-1">
-                      {editingTask?.id === task.id ? (
-                        <>
-                          <Button
-                            aria-label="Salvar tarefa"
-                            form={`edit-task-${task.id}`}
-                            size="icon"
-                            type="submit"
-                          >
-                            <Save size={16} />
-                          </Button>
-                          <Button
-                            aria-label="Cancelar edicao"
-                            size="icon"
-                            type="button"
-                            variant="ghost"
-                            onClick={() => setEditingTask(null)}
-                          >
-                            <X size={17} />
-                          </Button>
-                        </>
-                      ) : (
-                        <>
+                    {editingTask?.id !== task.id && (
+                      <div className="col-span-2 flex justify-end gap-1 sm:col-span-1">
                           <Button
                             aria-label="Editar tarefa"
                             size="icon"
@@ -1505,9 +1533,8 @@ function TasksApp() {
                           >
                             <Trash2 size={16} />
                           </Button>
-                        </>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </motion.article>
                 ))}
               </AnimatePresence>
@@ -1532,13 +1559,13 @@ function KanbanBoard({ onDelete, onEdit, onToggle, tasks }) {
     {
       id: "pending",
       title: "Pendentes",
-      description: "Itens que ainda precisam de acao",
+      description: "Itens que ainda precisam de ação",
       tasks: tasks.filter((task) => !task.done),
       tone: "text-amber-300",
     },
     {
       id: "done",
-      title: "Concluidas",
+      title: "Concluídas",
       description: "Itens finalizados no seu fluxo",
       tasks: tasks.filter((task) => task.done),
       tone: "text-emerald-300",
@@ -1571,7 +1598,9 @@ function KanbanBoard({ onDelete, onEdit, onToggle, tasks }) {
                   {task.title}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  <Badge variant={priorityVariant(task.priority)}>{task.priority}</Badge>
+                  <Badge variant={priorityVariant(task.priority)}>
+                    {displayPriority(task.priority)}
+                  </Badge>
                   <TaskDeadlineBadge task={task} />
                 </div>
                 <div className="mt-3 flex justify-end gap-1 border-t border-zinc-800 pt-3">
@@ -1623,6 +1652,78 @@ function TaskDeadlineBadge({ task }) {
       <CalendarDays size={12} />
       {deadline.label}
     </Badge>
+  );
+}
+
+function DatePicker({ label, onChange, value }) {
+  const [open, setOpen] = useState(false);
+  const selected = value ? parseISO(value) : undefined;
+
+  return (
+    <div className="relative">
+      <Button
+        aria-expanded={open}
+        aria-label={label}
+        className="w-full justify-start font-normal"
+        type="button"
+        variant="secondary"
+        onClick={() => setOpen((current) => !current)}
+      >
+        <CalendarDays className="text-emerald-300" size={16} />
+        <span className={cn(!selected && "text-zinc-500")}>
+          {selected ? format(selected, "dd/MM/yyyy") : "Selecionar data"}
+        </span>
+      </Button>
+      {open && (
+        <div className="absolute left-0 top-[calc(100%+0.5rem)] z-50 w-[280px] rounded-lg border border-zinc-700 bg-zinc-900 p-2 shadow-2xl shadow-black/50">
+          <DayPicker
+            classNames={{
+              button_next: "grid size-8 place-items-center rounded-md text-zinc-300 hover:bg-zinc-800",
+              button_previous: "grid size-8 place-items-center rounded-md text-zinc-300 hover:bg-zinc-800",
+              caption_label: "text-sm font-semibold text-zinc-100",
+              day: "p-0 text-center text-sm",
+              day_button: "size-8 rounded-md text-zinc-300 hover:bg-zinc-800 hover:text-zinc-50",
+              disabled: "opacity-30",
+              month: "space-y-3",
+              month_caption: "flex h-8 items-center justify-center",
+              month_grid: "w-full border-collapse",
+              nav: "absolute inset-x-2 top-2 flex justify-between",
+              outside: "opacity-35",
+              root: "relative",
+              selected: "[&>button]:bg-emerald-400 [&>button]:font-bold [&>button]:text-zinc-950",
+              today: "[&>button]:border [&>button]:border-emerald-400/60 [&>button]:text-emerald-300",
+              week: "grid grid-cols-7",
+              weekday: "py-1 text-center text-[11px] font-medium uppercase text-zinc-500",
+              weekdays: "grid grid-cols-7",
+            }}
+            locale={ptBR}
+            mode="single"
+            selected={selected}
+            onSelect={(date) => {
+              onChange(date ? format(date, "yyyy-MM-dd") : "");
+              setOpen(false);
+            }}
+          />
+          <div className="mt-2 flex justify-between border-t border-zinc-800 pt-2">
+            <Button
+              aria-label="Remover prazo"
+              size="sm"
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                onChange("");
+                setOpen(false);
+              }}
+            >
+              Limpar
+            </Button>
+            <Button size="sm" type="button" variant="ghost" onClick={() => setOpen(false)}>
+              Fechar
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1755,12 +1856,12 @@ function MonthlyTooltip({ active, payload }) {
       <p className="font-semibold text-zinc-100">{capitalize(month.fullLabel)}</p>
       <div className="mt-2 grid gap-1.5 text-xs">
         <TooltipRow color="#34d399" label="Entradas" value={month.income} />
-        <TooltipRow color="#fb7185" label="Saidas" value={month.expense} />
-        <TooltipRow color="#60a5fa" label="Saldo do mes" value={month.net} />
+        <TooltipRow color="#fb7185" label="Saídas" value={month.expense} />
+        <TooltipRow color="#60a5fa" label="Saldo do mês" value={month.net} />
         <TooltipRow color="#a7f3d0" label="Saldo acumulado" value={month.balance} />
       </div>
       <p className="mt-2 border-t border-zinc-800 pt-2 text-[11px] text-zinc-500">
-        Clique no ponto para selecionar o mes
+        Clique no ponto para selecionar o mês
       </p>
     </div>
   );
@@ -1860,7 +1961,7 @@ function ChartSkeleton({ variant = "chart" }) {
 
 function TableSkeleton() {
   return (
-    <div aria-label="Carregando transacoes" className="animate-pulse p-5">
+    <div aria-label="Carregando transações" className="animate-pulse p-5">
       <div className="mb-4 h-4 w-40 rounded bg-zinc-800" />
       <div className="space-y-3">
         {Array.from({ length: 4 }, (_, index) => (
@@ -1911,6 +2012,20 @@ function priorityVariant(priority) {
   return "success";
 }
 
+function displayPriority(priority) {
+  return priority === "media" ? "média" : priority;
+}
+
+function displayCategory(category) {
+  const labels = {
+    Alimentacao: "Alimentação",
+    Educacao: "Educação",
+    Saude: "Saúde",
+    Servicos: "Serviços",
+  };
+  return labels[category] || category;
+}
+
 function taskMatchesDeadline(task, filter) {
   if (filter === "all") return true;
   if (!task.dueDate) return filter === "none";
@@ -1941,7 +2056,7 @@ function taskDeadline(task) {
       variant: "danger",
     };
   }
-  if (daysUntilDue === 1) return { label: "Vence amanha", variant: "default" };
+  if (daysUntilDue === 1) return { label: "Vence amanhã", variant: "default" };
   return { label: `Em ${daysUntilDue} dias - ${formattedDate}`, variant: "default" };
 }
 

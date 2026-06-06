@@ -1,6 +1,7 @@
 import { Slot } from "@radix-ui/react-slot";
 import { cva } from "class-variance-authority";
 import React from "react";
+import { forwardRef } from "react";
 import { cn } from "../lib/utils";
 
 const buttonVariants = cva(
@@ -68,29 +69,31 @@ export function CardContent({ className, ...props }) {
   return <div className={cn("p-5 pt-0", className)} {...props} />;
 }
 
-export function Input({ className, ...props }) {
+export const Input = forwardRef(function Input({ className, ...props }, ref) {
   return (
     <input
       className={cn(
         "h-10 w-full rounded-md border border-zinc-700 bg-zinc-950/60 px-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/15 aria-[invalid=true]:border-red-400 aria-[invalid=true]:focus:border-red-400 aria-[invalid=true]:focus:ring-red-400/15",
         className,
       )}
+      ref={ref}
       {...props}
     />
   );
-}
+});
 
-export function Select({ className, ...props }) {
+export const Select = forwardRef(function Select({ className, ...props }, ref) {
   return (
     <select
       className={cn(
         "h-10 w-full rounded-md border border-zinc-700 bg-zinc-950/60 px-3 text-sm text-zinc-100 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/15 aria-[invalid=true]:border-red-400 aria-[invalid=true]:focus:border-red-400 aria-[invalid=true]:focus:ring-red-400/15",
         className,
       )}
+      ref={ref}
       {...props}
     />
   );
-}
+});
 
 const badgeVariants = cva(
   "inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-xs font-semibold capitalize",

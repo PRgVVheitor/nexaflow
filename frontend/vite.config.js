@@ -13,9 +13,11 @@ export default defineConfig({
       output: {
         manualChunks: {
           charts: ["recharts"],
+          dates: ["date-fns", "react-day-picker"],
           feedback: ["react-hot-toast"],
           forms: ["react-hook-form", "@hookform/resolvers", "zod"],
           motion: ["framer-motion"],
+          navigation: ["react-router-dom"],
           react: ["react", "react-dom"],
         },
       },
