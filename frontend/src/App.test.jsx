@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
@@ -177,7 +177,7 @@ describe("NexaFlow", () => {
     expect(await screen.findByText("Heitor Teste")).toBeInTheDocument();
     expect(screen.queryByTitle("Estudos")).not.toBeInTheDocument();
     expect(await screen.findByText("Salario de teste")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Gráfico de onda do saldo mensal" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Gráfico de onda de saldo" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Nexa Score 78 de 100" })).toBeInTheDocument();
     expect(screen.getByText("Previsão de saldo")).toBeInTheDocument();
     expect(screen.getByText("Projeção positiva")).toBeInTheDocument();
@@ -197,6 +197,34 @@ describe("NexaFlow", () => {
     expect(screen.getByLabelText("Mês principal")).toBeInTheDocument();
     expect(screen.getByLabelText("Mês para comparar")).toBeInTheDocument();
     expect(screen.getByText("Diferença de saldo entre os meses")).toBeInTheDocument();
+  });
+
+  it("alterna o indicador do gráfico de onda", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("nexaflow-token", "token-test");
+    render(<App />);
+
+    await screen.findByRole("img", { name: "Gráfico de onda de saldo" });
+    const metricSelector = screen.getByRole("group", { name: "Indicador do gráfico de onda" });
+    await user.click(within(metricSelector).getByRole("button", { name: "Entradas" }));
+
+    expect(screen.getByRole("img", { name: "Gráfico de onda de entradas" })).toBeInTheDocument();
+    expect(screen.getByText("Período anterior")).toBeInTheDocument();
+  });
+
+  it("abre o Copiloto Financeiro e responde usando os dados da conta", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("nexaflow-token", "token-test");
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Abrir Copiloto Financeiro" }));
+    expect(screen.getByRole("dialog", { name: "Copiloto Financeiro" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Qual meu saldo em 30 dias?" }));
+
+    expect(
+      screen.getByText(/a projeção de saldo em 30 dias é R\$ 4.550,00/i),
+    ).toBeInTheDocument();
   });
 
   it("exibe um estado vazio em vez de graficos zerados", async () => {

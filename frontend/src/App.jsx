@@ -37,11 +37,14 @@ import {
   Loader2,
   LogIn,
   LogOut,
+  MessageCircle,
   List,
   Pencil,
   Plus,
+  RotateCcw,
   Save,
   Search,
+  Send,
   ShieldCheck,
   Sparkles,
   Target,
@@ -117,6 +120,11 @@ const tabs = [
 ];
 
 const chartColors = ["#34d399", "#60a5fa", "#fbbf24", "#fb7185", "#a78bfa"];
+const waveMetrics = {
+  balance: { dataKey: "balance", label: "Saldo" },
+  income: { dataKey: "income", label: "Entradas" },
+  expense: { dataKey: "expense", label: "Saídas" },
+};
 const transactionCategories = {
   expense: [
     "Alimentacao",
@@ -509,6 +517,7 @@ function FinanceDashboard() {
   const [customPeriod, setCustomPeriod] = useState({ start: "", end: "" });
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [chartMode, setChartMode] = useState("evolution");
+  const [waveMetric, setWaveMetric] = useState("balance");
   const [selectedMonth, setSelectedMonth] = useState(() => monthKey(new Date()));
   const [comparisonMonth, setComparisonMonth] = useState(() =>
     shiftMonth(monthKey(new Date()), -1),
@@ -594,10 +603,10 @@ function FinanceDashboard() {
     return Object.entries(grouped).map(([name, value]) => ({ name: displayCategory(name), value }));
   }, [filteredTransactions]);
 
-  const monthlyData = useMemo(() => {
+  const monthlyHistory = useMemo(() => {
     const endMonth = monthKey(new Date());
-    const months = Array.from({ length: 6 }, (_, index) =>
-      shiftMonth(endMonth, index - 5),
+    const months = Array.from({ length: 12 }, (_, index) =>
+      shiftMonth(endMonth, index - 11),
     );
     const grouped = Object.fromEntries(
       months.map((key) => [
@@ -627,6 +636,30 @@ function FinanceDashboard() {
     });
   }, [filteredTransactions]);
 
+  const monthlyData = useMemo(() => monthlyHistory.slice(-6), [monthlyHistory]);
+
+  const waveData = useMemo(() => {
+    const previousMonths = monthlyHistory.slice(0, 6);
+    const currentMonths = monthlyHistory.slice(-6);
+    const metric = waveMetrics[waveMetric].dataKey;
+    let currentBalance = 0;
+    let previousBalance = 0;
+
+    return currentMonths.map((month, index) => {
+      const previousMonth = previousMonths[index];
+      currentBalance += month.net;
+      previousBalance += previousMonth.net;
+
+      return {
+        ...month,
+        current: metric === "balance" ? currentBalance : month[metric],
+        previous: metric === "balance" ? previousBalance : previousMonth[metric],
+        previousFullLabel: previousMonth.fullLabel,
+        previousLabel: previousMonth.label,
+      };
+    });
+  }, [monthlyHistory, waveMetric]);
+
   useEffect(() => {
     if (selectedMonth === comparisonMonth) {
       const alternative = monthlyData.find((item) => item.key !== selectedMonth);
@@ -654,6 +687,26 @@ function FinanceDashboard() {
   ];
   const comparisonDelta = selectedMonthData.net - comparisonMonthData.net;
   const hasFinancialActivity = filteredTransactions.length > 0;
+  const waveInsight = useMemo(() => {
+    const bestMonth = waveData.reduce(
+      (best, month) => (!best || month.current > best.current ? month : best),
+      null,
+    );
+    if (!bestMonth) return "";
+
+    const difference = bestMonth.current - bestMonth.previous;
+    const percentage = bestMonth.previous
+      ? Math.round((difference / Math.abs(bestMonth.previous)) * 100)
+      : null;
+    const comparisonText =
+      percentage === null
+        ? "sem base equivalente no período anterior"
+        : `${percentage >= 0 ? "+" : ""}${percentage}% contra o período anterior`;
+
+    return `${capitalize(bestMonth.fullLabel)} teve o melhor resultado em ${waveMetrics[
+      waveMetric
+    ].label.toLowerCase()}: ${currency.format(bestMonth.current)} (${comparisonText}).`;
+  }, [waveData, waveMetric]);
 
   async function createTransaction(data) {
     try {
@@ -915,7 +968,7 @@ function FinanceDashboard() {
 
       <ChartCard
         actions={
-          <div className="grid gap-2 sm:min-w-[430px]">
+          <div className="grid gap-2 sm:min-w-[520px]">
             <div
               aria-label="Modo do gráfico financeiro"
               className="grid grid-cols-2 rounded-md border border-zinc-800 bg-zinc-950/60 p-1"
@@ -943,22 +996,42 @@ function FinanceDashboard() {
               </Button>
             </div>
 
-            <div className={cn("grid gap-2", chartMode === "comparison" && "grid-cols-2")}>
-              <Select
-                aria-label="Mês principal"
-                value={selectedMonth}
-                onChange={(event) => setSelectedMonth(event.target.value)}
+            {chartMode === "evolution" ? (
+              <div
+                aria-label="Indicador do gráfico de onda"
+                className="grid grid-cols-3 rounded-md border border-zinc-800 bg-zinc-950/60 p-1"
+                role="group"
               >
-                {monthlyData
-                  .slice()
-                  .reverse()
-                  .map((month) => (
-                    <option key={month.key} value={month.key}>
-                      {capitalize(month.fullLabel)}
-                    </option>
-                  ))}
-              </Select>
-              {chartMode === "comparison" && (
+                {Object.entries(waveMetrics).map(([key, metric]) => (
+                  <Button
+                    aria-pressed={waveMetric === key}
+                    className="min-h-8 h-8"
+                    key={key}
+                    size="sm"
+                    type="button"
+                    variant={waveMetric === key ? "secondary" : "ghost"}
+                    onClick={() => setWaveMetric(key)}
+                  >
+                    {metric.label}
+                  </Button>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <Select
+                  aria-label="Mês principal"
+                  value={selectedMonth}
+                  onChange={(event) => setSelectedMonth(event.target.value)}
+                >
+                  {monthlyData
+                    .slice()
+                    .reverse()
+                    .map((month) => (
+                      <option key={month.key} value={month.key}>
+                        {capitalize(month.fullLabel)}
+                      </option>
+                    ))}
+                </Select>
                 <Select
                   aria-label="Mês para comparar"
                   value={comparisonMonth}
@@ -977,17 +1050,17 @@ function FinanceDashboard() {
                       </option>
                     ))}
                 </Select>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         }
-        contentClassName="h-80"
+        contentClassName="h-[25rem]"
         description={
           chartMode === "evolution"
-            ? "A onda mostra o ritmo do saldo. Clique em um ponto para selecionar o mês."
+            ? "Compare o ritmo dos seis meses atuais com o período equivalente anterior."
             : "Compare entradas, saídas e saldo entre dois meses."
         }
-        title={chartMode === "evolution" ? "Fluxo mensal do saldo" : "Comparação mensal"}
+        title={chartMode === "evolution" ? "Evolução financeira" : "Comparação mensal"}
       >
         {loading ? (
           <ChartSkeleton />
@@ -996,13 +1069,27 @@ function FinanceDashboard() {
         ) : chartMode === "evolution" ? (
             <motion.div
               animate={{ opacity: 1 }}
-              className="h-full"
+              className="flex h-full flex-col gap-3"
               initial={{ opacity: 0 }}
               key="evolution"
             >
-              <div aria-label="Gráfico de onda do saldo mensal" className="h-full" role="img">
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-zinc-500">
+                <span className="flex items-center gap-2">
+                  <span className="h-0.5 w-5 rounded-full bg-emerald-400" />
+                  Período atual
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="h-0.5 w-5 rounded-full bg-zinc-500" />
+                  Período anterior
+                </span>
+              </div>
+              <div
+                aria-label={`Gráfico de onda de ${waveMetrics[waveMetric].label.toLowerCase()}`}
+                className="min-h-0 flex-1"
+                role="img"
+              >
                 <ResponsiveContainer height="100%" width="100%">
-                <AreaChart data={monthlyData}>
+                <AreaChart data={waveData}>
                   <defs>
                     <linearGradient id="balanceWave" x1="0" x2="0" y1="0" y2="1">
                       <stop offset="0%" stopColor="#34d399" stopOpacity={0.42} />
@@ -1013,10 +1100,24 @@ function FinanceDashboard() {
                   <CartesianGrid stroke="#27272a" strokeDasharray="4 4" vertical={false} />
                   <XAxis axisLine={false} dataKey="label" tickLine={false} />
                   <YAxis axisLine={false} tickFormatter={compactCurrency} tickLine={false} />
-                  <Tooltip content={<MonthlyTooltip />} cursor={{ stroke: "#3f3f46" }} />
+                  <Tooltip
+                    content={<WaveTooltip metricLabel={waveMetrics[waveMetric].label} />}
+                    cursor={{ stroke: "#3f3f46" }}
+                  />
+                  <Area
+                    dataKey="previous"
+                    dot={false}
+                    fill="transparent"
+                    name="Período anterior"
+                    stroke="#71717a"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    type="natural"
+                  />
                   <Area
                     activeDot={{ fill: "#6ee7b7", r: 6, stroke: "#09090b", strokeWidth: 3 }}
-                    dataKey="balance"
+                    dataKey="current"
                     dot={(props) => (
                       <MonthDot
                         {...props}
@@ -1025,7 +1126,7 @@ function FinanceDashboard() {
                       />
                     )}
                     fill="url(#balanceWave)"
-                    name="Saldo acumulado"
+                    name="Período atual"
                     stroke="#34d399"
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -1034,6 +1135,10 @@ function FinanceDashboard() {
                   />
                 </AreaChart>
                 </ResponsiveContainer>
+              </div>
+              <div className="flex items-start gap-2 border-t border-zinc-800 pt-3 text-xs leading-5 text-zinc-400">
+                <span className="mt-1 size-2 shrink-0 rounded-full bg-emerald-400" />
+                <span>{waveInsight}</span>
               </div>
             </motion.div>
           ) : (
@@ -1284,7 +1389,172 @@ function FinanceDashboard() {
 
         <TransactionForm onCreate={createTransaction} />
       </div>
+
+      <FinancialCopilot
+        intelligence={intelligence}
+        totals={totals}
+        transactions={filteredTransactions}
+      />
     </div>
+  );
+}
+
+function FinancialCopilot({ intelligence, totals, transactions }) {
+  const initialMessage = {
+    id: "welcome",
+    role: "assistant",
+    text: "Olá! Eu sou o Copiloto Financeiro. Posso analisar seu saldo, gastos e projeções.",
+  };
+  const suggestions = [
+    "Por que gastei mais?",
+    "Quanto posso gastar este fim de semana?",
+    "Qual meu saldo em 30 dias?",
+  ];
+  const [open, setOpen] = useState(false);
+  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState([initialMessage]);
+
+  function startNewConversation() {
+    setMessages([initialMessage]);
+    setInput("");
+  }
+
+  function sendMessage(question = input) {
+    const text = question.trim();
+    if (!text) return;
+
+    const timestamp = Date.now();
+    setMessages((current) => [
+      ...current,
+      { id: `user-${timestamp}`, role: "user", text },
+      {
+        id: `assistant-${timestamp}`,
+        role: "assistant",
+        text: buildCopilotResponse(text, transactions, totals, intelligence),
+      },
+    ]);
+    setInput("");
+  }
+
+  return (
+    <>
+      <AnimatePresence>
+        {open && (
+          <motion.aside
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            aria-label="Copiloto Financeiro"
+            className="fixed inset-x-3 bottom-3 z-50 flex h-[min(42rem,calc(100vh-1.5rem))] flex-col overflow-hidden rounded-lg border border-zinc-700 bg-zinc-900 shadow-2xl shadow-black/50 sm:inset-x-auto sm:bottom-6 sm:right-6 sm:w-[26rem]"
+            exit={{ opacity: 0, scale: 0.97, y: 12 }}
+            initial={{ opacity: 0, scale: 0.97, y: 12 }}
+            role="dialog"
+            transition={{ duration: 0.2 }}
+          >
+            <header className="flex items-center justify-between gap-3 border-b border-zinc-800 p-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-emerald-400 text-zinc-950">
+                  <BrainCircuit size={18} />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="truncate text-sm font-semibold text-zinc-50">
+                    Copiloto Financeiro
+                  </h2>
+                  <p className="text-xs text-emerald-300">Analisando seus dados</p>
+                </div>
+              </div>
+              <div className="flex gap-1">
+                <Button
+                  aria-label="Iniciar nova conversa"
+                  size="icon"
+                  title="Iniciar nova conversa"
+                  type="button"
+                  variant="ghost"
+                  onClick={startNewConversation}
+                >
+                  <RotateCcw size={16} />
+                </Button>
+                <Button
+                  aria-label="Fechar Copiloto Financeiro"
+                  size="icon"
+                  title="Fechar"
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setOpen(false)}
+                >
+                  <X size={17} />
+                </Button>
+              </div>
+            </header>
+
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+              {messages.map((message) => (
+                <motion.div
+                  animate={{ opacity: 1, y: 0 }}
+                  className={cn(
+                    "max-w-[88%] rounded-lg px-3 py-2.5 text-sm leading-6",
+                    message.role === "user"
+                      ? "ml-auto bg-emerald-400 text-zinc-950"
+                      : "border border-zinc-800 bg-zinc-950/70 text-zinc-300",
+                  )}
+                  initial={{ opacity: 0, y: 5 }}
+                  key={message.id}
+                >
+                  {message.text}
+                </motion.div>
+              ))}
+            </div>
+
+            <div className="border-t border-zinc-800 p-3">
+              <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+                {suggestions.map((suggestion) => (
+                  <button
+                    className="shrink-0 rounded-full border border-zinc-700 bg-zinc-950/60 px-3 py-1.5 text-xs text-zinc-400 transition-colors hover:border-emerald-400/50 hover:text-emerald-300"
+                    key={suggestion}
+                    type="button"
+                    onClick={() => sendMessage(suggestion)}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+              <form
+                className="flex gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  sendMessage();
+                }}
+              >
+                <Input
+                  aria-label="Pergunte ao Copiloto Financeiro"
+                  placeholder="Pergunte sobre suas finanças..."
+                  value={input}
+                  onChange={(event) => setInput(event.target.value)}
+                />
+                <Button aria-label="Enviar mensagem" size="icon" type="submit">
+                  <Send size={17} />
+                </Button>
+              </form>
+              <p className="mt-2 text-[11px] text-zinc-600">
+                Respostas calculadas a partir dos dados disponíveis no NexaFlow.
+              </p>
+            </div>
+          </motion.aside>
+        )}
+      </AnimatePresence>
+
+      {!open && (
+        <motion.button
+          animate={{ opacity: 1, scale: 1 }}
+          aria-label="Abrir Copiloto Financeiro"
+          className="fixed bottom-5 right-5 z-40 grid size-14 place-items-center rounded-full border border-emerald-300/30 bg-emerald-400 text-zinc-950 shadow-xl shadow-emerald-950/50 transition-colors hover:bg-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 sm:bottom-6 sm:right-6"
+          initial={{ opacity: 0, scale: 0.8 }}
+          title="Abrir Copiloto Financeiro"
+          type="button"
+          onClick={() => setOpen(true)}
+        >
+          <MessageCircle size={23} />
+        </motion.button>
+      )}
+    </>
   );
 }
 
@@ -2285,6 +2555,29 @@ function MonthDot({ cx, cy, onSelect, payload, selected }) {
   );
 }
 
+function WaveTooltip({ active, metricLabel, payload }) {
+  if (!active || !payload?.length) return null;
+  const month = payload[0].payload;
+
+  return (
+    <div className="min-w-52 rounded-md border border-zinc-700 bg-zinc-950/95 p-3 shadow-xl shadow-black/30">
+      <p className="font-semibold text-zinc-100">{metricLabel}</p>
+      <div className="mt-2 grid gap-2 text-xs">
+        <TooltipRow
+          color="#34d399"
+          label={capitalize(month.fullLabel)}
+          value={month.current}
+        />
+        <TooltipRow
+          color="#71717a"
+          label={capitalize(month.previousFullLabel)}
+          value={month.previous}
+        />
+      </div>
+    </div>
+  );
+}
+
 function MonthlyTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
   const month = payload[0].payload;
@@ -2554,6 +2847,67 @@ function formatMonth(key, formatter) {
 
 function capitalize(value) {
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function buildCopilotResponse(question, transactions, totals, intelligence) {
+  const normalized = question
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  const expenses = transactions.filter((transaction) => transaction.type === "expense");
+  const expenseByCategory = expenses.reduce((result, transaction) => {
+    result[transaction.category] = (result[transaction.category] || 0) + transaction.amount;
+    return result;
+  }, {});
+  const topCategory = Object.entries(expenseByCategory).sort((a, b) => b[1] - a[1])[0];
+  const projectedBalance = intelligence?.forecast?.periods?.find((period) => period.days === 30)?.balance;
+
+  if (normalized.includes("30 dias") || normalized.includes("saldo futuro")) {
+    return projectedBalance === undefined
+      ? "Ainda não há dados suficientes para projetar seu saldo em 30 dias."
+      : `Mantendo seu ritmo atual, a projeção de saldo em 30 dias é ${currency.format(
+          projectedBalance,
+        )}. O risco financeiro está classificado como ${intelligence.forecast.riskLabel.toLowerCase()}.`;
+  }
+
+  if (
+    normalized.includes("gastei mais") ||
+    normalized.includes("maior gasto") ||
+    normalized.includes("categoria")
+  ) {
+    return topCategory
+      ? `${displayCategory(topCategory[0])} é sua maior categoria de gastos no período, com ${currency.format(
+          topCategory[1],
+        )}. Ela representa ${totals.expense ? Math.round((topCategory[1] / totals.expense) * 100) : 0}% das saídas.`
+      : "Ainda não há saídas registradas neste período para eu comparar.";
+  }
+
+  if (normalized.includes("fim de semana") || normalized.includes("posso gastar")) {
+    const prudentAmount = Math.max(0, totals.balance * 0.15);
+    return totals.balance > 0
+      ? `Uma referência prudente seria limitar os gastos a ${currency.format(
+          prudentAmount,
+        )}, cerca de 15% do saldo disponível de ${currency.format(totals.balance)}.`
+      : "Seu saldo disponível não está positivo neste período. Eu evitaria criar novos gastos agora.";
+  }
+
+  if (normalized.includes("score") || normalized.includes("saude financeira")) {
+    return intelligence?.score
+      ? `Seu Nexa Score é ${intelligence.score.value} de 100, classificado como ${intelligence.score.label}. Ele considera economia, saldo, controle de gastos e consistência.`
+      : "Ainda não há dados suficientes para calcular seu Nexa Score.";
+  }
+
+  if (normalized.includes("econom")) {
+    return `Sua taxa de economia no período está em ${totals.savingsRate}%. O saldo atual é ${currency.format(
+      totals.balance,
+    )}.`;
+  }
+
+  return `No período analisado, você possui ${currency.format(totals.income)} em entradas, ${currency.format(
+    totals.expense,
+  )} em saídas e saldo de ${currency.format(
+    totals.balance,
+  )}. Você também pode perguntar sobre maior gasto, Nexa Score ou saldo em 30 dias.`;
 }
 
 export default App;

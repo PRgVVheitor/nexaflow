@@ -1,6 +1,8 @@
 export const demoModeKey = "nexaflow-demo-mode";
 export const demoStoreKey = "nexaflow-demo-store";
 export const demoToken = "demo-local-token";
+const demoVersion = "2";
+const demoVersionKey = "nexaflow-demo-version";
 
 const demoUser = {
   id: "demo-user",
@@ -35,6 +37,40 @@ function createDemoStore() {
     date.setDate(date.getDate() - days);
     return date.toISOString();
   };
+  const transactionMonth = (monthsAgo, day) => {
+    const date = new Date(now.getFullYear(), now.getMonth() - monthsAgo, day, 12);
+    return date.toISOString();
+  };
+  const historicalTransactions = [
+    [1, 4700, 2380, "Moradia"],
+    [2, 4450, 2760, "Alimentacao"],
+    [3, 5100, 2490, "Servicos"],
+    [4, 4300, 2910, "Transporte"],
+    [5, 4800, 2210, "Moradia"],
+    [6, 4200, 2630, "Alimentacao"],
+    [7, 4550, 2850, "Lazer"],
+    [8, 4400, 2310, "Servicos"],
+    [9, 4950, 3020, "Moradia"],
+    [10, 4100, 2580, "Transporte"],
+    [11, 4650, 2440, "Alimentacao"],
+  ].flatMap(([monthsAgo, income, expense, category]) => [
+    {
+      id: `demo-history-income-${monthsAgo}`,
+      description: "Renda mensal",
+      category: "Renda",
+      type: "income",
+      amount: income,
+      createdAt: transactionMonth(monthsAgo, 5),
+    },
+    {
+      id: `demo-history-expense-${monthsAgo}`,
+      description: `Gastos de ${displayCategory(category)}`,
+      category,
+      type: "expense",
+      amount: expense,
+      createdAt: transactionMonth(monthsAgo, 18),
+    },
+  ]);
 
   return {
     transactions: [
@@ -78,6 +114,7 @@ function createDemoStore() {
         amount: 189,
         createdAt: transactionDate(12),
       },
+      ...historicalTransactions,
     ],
     tasks: [
       {
@@ -197,7 +234,10 @@ function buildDemoIntelligence(transactions) {
 export function activateDemoMode() {
   localStorage.setItem(demoModeKey, "true");
   localStorage.setItem("nexaflow-token", demoToken);
-  if (!localStorage.getItem(demoStoreKey)) writeDemoStore(createDemoStore());
+  if (localStorage.getItem(demoVersionKey) !== demoVersion) {
+    writeDemoStore(createDemoStore());
+    localStorage.setItem(demoVersionKey, demoVersion);
+  }
   return { token: demoToken, user: demoUser };
 }
 
