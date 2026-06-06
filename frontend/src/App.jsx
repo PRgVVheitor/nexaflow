@@ -46,7 +46,6 @@ import {
   Search,
   Send,
   ShieldCheck,
-  Sparkles,
   Target,
   Trash2,
   TriangleAlert,
@@ -236,15 +235,8 @@ function AppContent() {
     <main className="mx-auto min-h-screen w-full max-w-[1440px] px-3 py-4 sm:px-6 sm:py-5 lg:px-8">
       <header className="mb-6 flex flex-col gap-5 border-b border-zinc-800 pb-5 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-400 text-zinc-950">
-            <Sparkles size={20} />
-          </div>
-          <div className="min-w-0">
-            <p className="text-lg font-bold text-zinc-50">NexaFlow</p>
-            <p className="truncate text-sm text-zinc-500">
-              Finanças e produtividade conectadas
-            </p>
-          </div>
+          <BrandMark />
+          <p className="text-lg font-bold text-zinc-50">NexaFlow</p>
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -372,9 +364,7 @@ function AuthScreen({ onAuthenticated }) {
       >
         <section className="flex flex-col justify-between border-b border-zinc-800 p-6 sm:p-9 lg:border-b-0 lg:border-r">
           <div>
-            <div className="flex size-11 items-center justify-center rounded-lg bg-emerald-400 text-zinc-950">
-              <Sparkles size={21} />
-            </div>
+            <BrandMark className="size-11 text-lg" />
             <p className="mt-5 text-xl font-bold text-zinc-50">NexaFlow</p>
             <h1 className="mt-8 max-w-xl text-3xl font-bold leading-tight text-zinc-50 sm:text-5xl">
               Sua rotina organizada em um único fluxo.
@@ -2455,6 +2445,21 @@ function PageHeading({ description, eyebrow, title }) {
       <p className="text-xs font-semibold uppercase text-emerald-300">{eyebrow}</p>
       <h1 className="text-3xl font-bold text-zinc-50 sm:text-4xl">{title}</h1>
       <p className="max-w-3xl text-sm leading-6 text-zinc-400">{description}</p>
+    </div>
+  );
+}
+
+function BrandMark({ className }) {
+  return (
+    <div
+      aria-label="Logo NexaFlow"
+      className={cn(
+        "flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-400 text-base font-black text-zinc-950",
+        className,
+      )}
+      role="img"
+    >
+      N
     </div>
   );
 }
