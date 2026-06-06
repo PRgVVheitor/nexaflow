@@ -1403,7 +1403,7 @@ function FinancialCopilot({ intelligence, totals, transactions }) {
   const initialMessage = {
     id: "welcome",
     role: "assistant",
-    text: "Olá! Eu sou o Copiloto Financeiro. Posso analisar seu saldo, gastos e projeções.",
+    text: "Olá! Eu sou o Mikal, seu assistente financeiro. Posso analisar seu saldo, gastos e projeções.",
   };
   const suggestions = [
     "Por que gastei mais?",
@@ -1442,7 +1442,7 @@ function FinancialCopilot({ intelligence, totals, transactions }) {
         {open && (
           <motion.aside
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            aria-label="Copiloto Financeiro"
+            aria-label="Mikal"
             className="fixed inset-x-3 bottom-3 z-50 flex h-[min(42rem,calc(100vh-1.5rem))] flex-col overflow-hidden rounded-lg border border-zinc-700 bg-zinc-900 shadow-2xl shadow-black/50 sm:inset-x-auto sm:bottom-6 sm:right-6 sm:w-[26rem]"
             exit={{ opacity: 0, scale: 0.97, y: 12 }}
             initial={{ opacity: 0, scale: 0.97, y: 12 }}
@@ -1456,7 +1456,7 @@ function FinancialCopilot({ intelligence, totals, transactions }) {
                 </div>
                 <div className="min-w-0">
                   <h2 className="truncate text-sm font-semibold text-zinc-50">
-                    Copiloto Financeiro
+                    Mikal
                   </h2>
                   <p className="text-xs text-emerald-300">Analisando seus dados</p>
                 </div>
@@ -1473,7 +1473,7 @@ function FinancialCopilot({ intelligence, totals, transactions }) {
                   <RotateCcw size={16} />
                 </Button>
                 <Button
-                  aria-label="Fechar Copiloto Financeiro"
+                  aria-label="Fechar Mikal"
                   size="icon"
                   title="Fechar"
                   type="button"
@@ -1524,7 +1524,7 @@ function FinancialCopilot({ intelligence, totals, transactions }) {
                 }}
               >
                 <Input
-                  aria-label="Pergunte ao Copiloto Financeiro"
+                  aria-label="Pergunte ao Mikal"
                   placeholder="Pergunte sobre suas finanças..."
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
@@ -1544,10 +1544,10 @@ function FinancialCopilot({ intelligence, totals, transactions }) {
       {!open && (
         <motion.button
           animate={{ opacity: 1, scale: 1 }}
-          aria-label="Abrir Copiloto Financeiro"
+          aria-label="Abrir Mikal"
           className="fixed bottom-5 right-5 z-40 grid size-14 place-items-center rounded-full border border-emerald-300/30 bg-emerald-400 text-zinc-950 shadow-xl shadow-emerald-950/50 transition-colors hover:bg-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 sm:bottom-6 sm:right-6"
           initial={{ opacity: 0, scale: 0.8 }}
-          title="Abrir Copiloto Financeiro"
+          title="Abrir Mikal"
           type="button"
           onClick={() => setOpen(true)}
         >

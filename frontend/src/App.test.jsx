@@ -212,13 +212,13 @@ describe("NexaFlow", () => {
     expect(screen.getByText("Período anterior")).toBeInTheDocument();
   });
 
-  it("abre o Copiloto Financeiro e responde usando os dados da conta", async () => {
+  it("abre o Mikal e responde usando os dados da conta", async () => {
     const user = userEvent.setup();
     localStorage.setItem("nexaflow-token", "token-test");
     render(<App />);
 
-    await user.click(await screen.findByRole("button", { name: "Abrir Copiloto Financeiro" }));
-    expect(screen.getByRole("dialog", { name: "Copiloto Financeiro" })).toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "Abrir Mikal" }));
+    expect(screen.getByRole("dialog", { name: "Mikal" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Qual meu saldo em 30 dias?" }));
 
