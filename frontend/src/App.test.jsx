@@ -178,6 +178,9 @@ describe("NexaFlow", () => {
     expect(screen.queryByTitle("Estudos")).not.toBeInTheDocument();
     expect(await screen.findByText("Salario de teste")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Gráfico de onda de saldo" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "Gráfico de barras horizontais dos gastos por categoria" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Nexa Score 78 de 100" })).toBeInTheDocument();
     expect(screen.getByText("Previsão de saldo")).toBeInTheDocument();
     expect(screen.getByText("Projeção positiva")).toBeInTheDocument();

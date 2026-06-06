@@ -73,8 +73,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Pie,
-  PieChart,
+  LabelList,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -600,7 +599,9 @@ function FinanceDashboard() {
         return result;
       }, {});
 
-    return Object.entries(grouped).map(([name, value]) => ({ name: displayCategory(name), value }));
+    return Object.entries(grouped)
+      .map(([name, value]) => ({ name: displayCategory(name), value }))
+      .sort((a, b) => b.value - a.value);
   }, [filteredTransactions]);
 
   const monthlyHistory = useMemo(() => {
@@ -922,43 +923,51 @@ function FinanceDashboard() {
         </ChartCard>
 
         <ChartCard
-          description="Distribuição das despesas por categoria"
+          description="Compare rapidamente onde suas despesas estão concentradas"
           title="Gastos por categoria"
         >
           {loading ? (
-            <ChartSkeleton variant="donut" />
+            <ChartSkeleton variant="horizontal-bars" />
           ) : expenseByCategory.length ? (
-            <div className="flex h-full flex-col">
-              <div className="min-h-0 flex-1">
-                <ResponsiveContainer height="100%" width="100%">
-                  <PieChart>
-                    <Pie
-                      data={expenseByCategory}
+            <div aria-label="Gráfico de barras horizontais dos gastos por categoria" className="h-full" role="img">
+              <ResponsiveContainer height="100%" width="100%">
+                <BarChart
+                  data={expenseByCategory}
+                  layout="vertical"
+                  margin={{ bottom: 4, left: 10, right: 58, top: 4 }}
+                >
+                  <CartesianGrid horizontal={false} stroke="#27272a" strokeDasharray="4 4" />
+                  <XAxis
+                    axisLine={false}
+                    tickFormatter={compactCurrency}
+                    tickLine={false}
+                    type="number"
+                  />
+                  <YAxis
+                    axisLine={false}
+                    dataKey="name"
+                    tickLine={false}
+                    type="category"
+                    width={92}
+                  />
+                  <Tooltip
+                    content={<CategoryBarTooltip />}
+                    cursor={{ fill: "#27272a", opacity: 0.35 }}
+                  />
+                  <Bar barSize={24} dataKey="value" name="Gastos" radius={[0, 7, 7, 0]}>
+                    {expenseByCategory.map((item, index) => (
+                      <Cell fill={chartColors[index % chartColors.length]} key={item.name} />
+                    ))}
+                    <LabelList
                       dataKey="value"
-                      innerRadius={56}
-                      nameKey="name"
-                      outerRadius={88}
-                      paddingAngle={3}
-                    >
-                      {expenseByCategory.map((item, index) => (
-                        <Cell fill={chartColors[index % chartColors.length]} key={item.name} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => currency.format(value)} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 border-t border-zinc-800 pt-3">
-                {expenseByCategory.map((item, index) => (
-                  <div className="flex items-center gap-2 text-xs text-zinc-400" key={item.name}>
-                    <span
-                      className="size-2.5 rounded-full"
-                      style={{ backgroundColor: chartColors[index % chartColors.length] }}
+                      fill="#a1a1aa"
+                      fontSize={11}
+                      formatter={compactCurrency}
+                      position="right"
                     />
-                    <span>{item.name}</span>
-                  </div>
-                ))}
-              </div>
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           ) : (
             <EmptyState text="Adicione uma saída para visualizar o gráfico." />
@@ -2618,6 +2627,18 @@ function ComparisonTooltip({ active, label, payload }) {
   );
 }
 
+function CategoryBarTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  const category = payload[0].payload;
+
+  return (
+    <div className="min-w-44 rounded-md border border-zinc-700 bg-zinc-950/95 p-3 shadow-xl shadow-black/30">
+      <p className="font-semibold text-zinc-100">{category.name}</p>
+      <p className="mt-1 text-sm font-bold text-emerald-300">{currency.format(category.value)}</p>
+    </div>
+  );
+}
+
 function TooltipRow({ color, label, value }) {
   return (
     <div className="flex items-center justify-between gap-5 text-zinc-400">
@@ -2669,10 +2690,15 @@ function TaskStatSkeleton() {
 }
 
 function ChartSkeleton({ variant = "chart" }) {
-  if (variant === "donut") {
+  if (variant === "horizontal-bars") {
     return (
-      <div className="grid h-full animate-pulse place-items-center">
-        <div className="size-40 rounded-full border-[28px] border-zinc-800" />
+      <div className="flex h-full animate-pulse flex-col justify-center gap-4 px-5">
+        {[82, 64, 48, 34].map((width) => (
+          <div className="flex items-center gap-3" key={width}>
+            <div className="h-3 w-20 rounded bg-zinc-800/70" />
+            <div className="h-6 rounded bg-zinc-800" style={{ width: `${width}%` }} />
+          </div>
+        ))}
       </div>
     );
   }
