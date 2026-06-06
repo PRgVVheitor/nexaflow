@@ -119,7 +119,10 @@ describe("NexaFlow", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    expect(screen.getByRole("img", { name: "Logo NexaFlow" })).toHaveTextContent("N");
+    expect(screen.getByRole("img", { name: "Logo NexaFlow" })).toHaveAttribute(
+      "src",
+      "/nexaflow-mark.svg",
+    );
     expect(screen.getByRole("heading", { name: "Entre no NexaFlow" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Criar uma nova conta" }));
 

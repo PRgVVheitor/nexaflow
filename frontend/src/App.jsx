@@ -2451,16 +2451,11 @@ function PageHeading({ description, eyebrow, title }) {
 
 function BrandMark({ className }) {
   return (
-    <div
-      aria-label="Logo NexaFlow"
-      className={cn(
-        "flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-400 text-base font-black text-zinc-950",
-        className,
-      )}
-      role="img"
-    >
-      N
-    </div>
+    <img
+      alt="Logo NexaFlow"
+      className={cn("size-10 shrink-0 rounded-lg", className)}
+      src="/nexaflow-mark.svg"
+    />
   );
 }
 
