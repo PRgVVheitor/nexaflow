@@ -38,6 +38,7 @@ Mostrar no GitHub um produto com separação clara entre front-end e back-end, c
 ## Funcionalidades
 
 - Dashboard financeiro responsivo com gráfico de onda, legenda de categorias, seleção e comparação mensal.
+- Inteligência Financeira V1 com Nexa Score explicável, previsão de saldo em 7, 15 e 30 dias, alertas de anomalias e feed de insights.
 - Filtros financeiros por semana, mês, ano ou intervalo personalizado.
 - Exportação das transações filtradas em CSV.
 - Edição inline de descrição, categoria, tipo e valor das transações.

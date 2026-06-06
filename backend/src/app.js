@@ -12,6 +12,7 @@ import {
 } from "./auth.js";
 import { prisma } from "./db.js";
 import { env } from "./env.js";
+import { buildFinancialIntelligence } from "./finance-intelligence.js";
 import {
   loginSchema,
   registerSchema,
@@ -126,6 +127,18 @@ app.get(
       orderBy: { createdAt: "desc" },
     });
     res.json(transactions.map(serializeTransaction));
+  }),
+);
+
+app.get(
+  "/api/finance/intelligence",
+  requireAuth,
+  asyncRoute(async (req, res) => {
+    const transactions = await prisma.transaction.findMany({
+      where: { userId: req.auth.userId },
+      orderBy: { createdAt: "asc" },
+    });
+    res.json(buildFinancialIntelligence(transactions));
   }),
 );
 

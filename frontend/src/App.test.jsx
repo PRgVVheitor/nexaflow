@@ -39,6 +39,34 @@ const defaultTasks = [
   },
 ];
 
+const defaultIntelligence = {
+  score: {
+    value: 78,
+    label: "Saudável",
+    components: { savings: 30, balance: 20, control: 14, consistency: 14 },
+  },
+  forecast: {
+    currentBalance: 3800,
+    dailyNet: 25,
+    risk: "low",
+    riskLabel: "Baixo risco",
+    periods: [
+      { days: 7, balance: 3975 },
+      { days: 15, balance: 4175 },
+      { days: 30, balance: 4550 },
+    ],
+  },
+  anomalies: [],
+  insights: [
+    {
+      id: "forecast",
+      type: "success",
+      title: "Projeção positiva",
+      message: "Mantendo o ritmo atual, seu saldo seguirá positivo.",
+    },
+  ],
+};
+
 const responses = {
   "/api/auth/login": {
     token: "token-demo",
@@ -56,6 +84,7 @@ const responses = {
     },
   },
   "/api/transactions": defaultTransactions,
+  "/api/finance/intelligence": defaultIntelligence,
   "/api/tasks": defaultTasks,
 };
 
@@ -63,6 +92,7 @@ beforeEach(() => {
   localStorage.clear();
   window.history.pushState({}, "", "/");
   responses["/api/transactions"] = defaultTransactions;
+  responses["/api/finance/intelligence"] = defaultIntelligence;
   responses["/api/tasks"] = defaultTasks;
   delete responses["/api/transactions/tx-test"];
   delete responses["/api/tasks/task-test"];
@@ -144,6 +174,9 @@ describe("NexaFlow", () => {
     expect(screen.queryByTitle("Estudos")).not.toBeInTheDocument();
     expect(await screen.findByText("Salario de teste")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Gráfico de onda do saldo mensal" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Nexa Score 78 de 100" })).toBeInTheDocument();
+    expect(screen.getByText("Previsão de saldo")).toBeInTheDocument();
+    expect(screen.getByText("Projeção positiva")).toBeInTheDocument();
     expect(globalThis.fetch).toHaveBeenCalledWith(
       "http://127.0.0.1:3001/api/transactions",
       expect.any(Object),

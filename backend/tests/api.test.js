@@ -144,6 +144,16 @@ describe("NexaFlow API", () => {
     expect(removed.status).toBe(204);
   });
 
+  it("gera score, previsoes e insights financeiros", async () => {
+    const response = await authenticated("get", "/api/finance/intelligence");
+
+    expect(response.status).toBe(200);
+    expect(response.body.score.value).toBeGreaterThanOrEqual(0);
+    expect(response.body.score.value).toBeLessThanOrEqual(100);
+    expect(response.body.forecast.periods).toHaveLength(3);
+    expect(response.body.insights).toEqual(expect.any(Array));
+  });
+
   it("cria, edita, conclui e remove uma tarefa", async () => {
     const title = `${testPrefix}-task`;
     const created = await authenticated("post", "/api/tasks").send({
