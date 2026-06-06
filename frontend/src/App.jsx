@@ -2,11 +2,19 @@ import { AnimatePresence, motion } from "framer-motion";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   differenceInCalendarDays,
+  endOfDay,
+  endOfMonth,
+  endOfWeek,
+  endOfYear,
   format,
   isBefore,
   isToday,
+  isWithinInterval,
   parseISO,
   startOfDay,
+  startOfMonth,
+  startOfWeek,
+  startOfYear,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DayPicker } from "react-day-picker";
@@ -19,6 +27,7 @@ import {
   ClipboardList,
   Columns3,
   DollarSign,
+  Download,
   Eye,
   EyeOff,
   GitCompareArrows,
@@ -484,6 +493,9 @@ function FinanceDashboard() {
   const [transactions, setTransactions] = useState([]);
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [periodFilter, setPeriodFilter] = useState("all");
+  const [customPeriod, setCustomPeriod] = useState({ start: "", end: "" });
+  const [editingTransaction, setEditingTransaction] = useState(null);
   const [chartMode, setChartMode] = useState("evolution");
   const [selectedMonth, setSelectedMonth] = useState(() => monthKey(new Date()));
   const [comparisonMonth, setComparisonMonth] = useState(() =>
@@ -520,9 +532,10 @@ function FinanceDashboard() {
       const matchesSearch = transaction.description
         .toLowerCase()
         .includes(search.toLowerCase());
-      return matchesCategory && matchesSearch;
+      const matchesPeriod = transactionMatchesPeriod(transaction, periodFilter, customPeriod);
+      return matchesCategory && matchesSearch && matchesPeriod;
     });
-  }, [transactions, categoryFilter, search]);
+  }, [transactions, categoryFilter, search, periodFilter, customPeriod]);
 
   const totals = useMemo(() => {
     const income = filteredTransactions
@@ -637,6 +650,68 @@ function FinanceDashboard() {
     }
   }
 
+  function startEditingTransaction(transaction) {
+    setEditingTransaction({
+      id: transaction.id,
+      description: transaction.description,
+      category: transaction.category,
+      type: transaction.type,
+      amount: String(transaction.amount),
+    });
+  }
+
+  async function saveTransaction() {
+    const result = transactionFormSchema.safeParse({
+      amount: editingTransaction.amount,
+      category: editingTransaction.category,
+      description: editingTransaction.description,
+      type: editingTransaction.type,
+    });
+    if (!result.success) {
+      toast.error(result.error.issues[0].message);
+      return;
+    }
+
+    try {
+      const updated = await api(`/api/transactions/${editingTransaction.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(result.data),
+      });
+      setTransactions((current) =>
+        current.map((transaction) => (transaction.id === updated.id ? updated : transaction)),
+      );
+      setEditingTransaction(null);
+      toast.success("Transação atualizada.");
+    } catch (requestError) {
+      toast.error(requestError.message);
+    }
+  }
+
+  function exportTransactions() {
+    const rows = filteredTransactions.map((transaction) => [
+      format(new Date(transaction.createdAt), "dd/MM/yyyy HH:mm"),
+      transaction.description,
+      displayCategory(transaction.category),
+      transaction.type === "income" ? "Entrada" : "Saída",
+      transaction.amount.toFixed(2).replace(".", ","),
+    ]);
+    const csv = [
+      ["Data", "Descrição", "Categoria", "Tipo", "Valor (R$)"],
+      ...rows,
+    ]
+      .map((row) => row.map(csvCell).join(";"))
+      .join("\r\n");
+    const url = URL.createObjectURL(
+      new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" }),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `nexaflow-transacoes-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${filteredTransactions.length} transações exportadas.`);
+  }
+
   const metrics = [
     {
       title: "Saldo atual",
@@ -675,6 +750,47 @@ function FinanceDashboard() {
         eyebrow="Painel financeiro"
         title="Visão geral"
       />
+
+      <div className="flex flex-col gap-3 border-y border-zinc-800 py-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-zinc-100">Período da análise</p>
+          <p className="text-xs text-zinc-500">
+            Totais, gráficos, tabela e exportação acompanham este filtro.
+          </p>
+        </div>
+        <div
+          className={cn(
+            "grid gap-2",
+            periodFilter === "custom" ? "sm:grid-cols-3 lg:min-w-[560px]" : "lg:min-w-[220px]",
+          )}
+        >
+          <Select
+            aria-label="Filtrar período"
+            value={periodFilter}
+            onChange={(event) => setPeriodFilter(event.target.value)}
+          >
+            <option value="all">Todos os períodos</option>
+            <option value="week">Esta semana</option>
+            <option value="month">Este mês</option>
+            <option value="year">Este ano</option>
+            <option value="custom">Personalizado</option>
+          </Select>
+          {periodFilter === "custom" && (
+            <>
+              <DatePicker
+                label="Data inicial"
+                value={customPeriod.start}
+                onChange={(start) => setCustomPeriod((current) => ({ ...current, start }))}
+              />
+              <DatePicker
+                label="Data final"
+                value={customPeriod.end}
+                onChange={(end) => setCustomPeriod((current) => ({ ...current, end }))}
+              />
+            </>
+          )}
+        </div>
+      </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:sticky xl:top-2 xl:z-20 xl:grid-cols-4 xl:rounded-lg xl:bg-zinc-950/90 xl:py-2 xl:backdrop-blur">
         {loading
@@ -928,7 +1044,7 @@ function FinanceDashboard() {
               <CardTitle>Transações recentes</CardTitle>
               <CardDescription>Dados sincronizados com a API Node.</CardDescription>
             </div>
-            <div className="grid gap-2 sm:grid-cols-[1fr_180px]">
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_180px_auto]">
               <div className="relative">
                 <Search
                   className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
@@ -955,6 +1071,15 @@ function FinanceDashboard() {
                   </option>
                 ))}
               </Select>
+              <Button
+                disabled={!filteredTransactions.length}
+                type="button"
+                variant="secondary"
+                onClick={exportTransactions}
+              >
+                <Download size={16} />
+                Exportar CSV
+              </Button>
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -973,44 +1098,147 @@ function FinanceDashboard() {
                     <TableHead>Categoria</TableHead>
                     <TableHead>Tipo</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
-                    <TableHead className="w-14" />
+                    <TableHead className="w-24" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredTransactions.map((transaction) => (
                     <TableRow key={transaction.id}>
-                      <TableCell className="font-medium text-zinc-100">
-                        {transaction.description}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="neutral">{displayCategory(transaction.category)}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={transaction.type === "income" ? "success" : "danger"}>
-                          {transaction.type === "income" ? "Entrada" : "Saída"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell
-                        className={cn(
-                          "text-right font-semibold",
-                          transaction.type === "income"
-                            ? "text-emerald-300"
-                            : "text-red-300",
-                        )}
-                      >
-                        {currency.format(transaction.amount)}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          aria-label="Remover transação"
-                          size="icon"
-                          type="button"
-                          variant="destructive"
-                          onClick={() => deleteTransaction(transaction.id)}
-                        >
-                          <Trash2 size={16} />
-                        </Button>
-                      </TableCell>
+                      {editingTransaction?.id === transaction.id ? (
+                        <>
+                          <TableCell>
+                            <Input
+                              aria-label="Editar descrição da transação"
+                              value={editingTransaction.description}
+                              onChange={(event) =>
+                                setEditingTransaction((current) => ({
+                                  ...current,
+                                  description: event.target.value,
+                                }))
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              aria-label="Editar categoria da transação"
+                              value={editingTransaction.category}
+                              onChange={(event) =>
+                                setEditingTransaction((current) => ({
+                                  ...current,
+                                  category: event.target.value,
+                                }))
+                              }
+                            >
+                              {transactionCategories[editingTransaction.type].map((category) => (
+                                <option key={category} value={category}>
+                                  {displayCategory(category)}
+                                </option>
+                              ))}
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              aria-label="Editar tipo da transação"
+                              value={editingTransaction.type}
+                              onChange={(event) => {
+                                const type = event.target.value;
+                                setEditingTransaction((current) => ({
+                                  ...current,
+                                  type,
+                                  category: transactionCategories[type].includes(current.category)
+                                    ? current.category
+                                    : transactionCategories[type][0],
+                                }));
+                              }}
+                            >
+                              <option value="income">Entrada</option>
+                              <option value="expense">Saída</option>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              aria-label="Editar valor da transação"
+                              min="0.01"
+                              step="0.01"
+                              type="number"
+                              value={editingTransaction.amount}
+                              onChange={(event) =>
+                                setEditingTransaction((current) => ({
+                                  ...current,
+                                  amount: event.target.value,
+                                }))
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                aria-label="Salvar transação"
+                                size="icon"
+                                type="button"
+                                onClick={saveTransaction}
+                              >
+                                <Save size={16} />
+                              </Button>
+                              <Button
+                                aria-label="Cancelar edição da transação"
+                                size="icon"
+                                type="button"
+                                variant="ghost"
+                                onClick={() => setEditingTransaction(null)}
+                              >
+                                <X size={16} />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </>
+                      ) : (
+                        <>
+                          <TableCell className="font-medium text-zinc-100">
+                            {transaction.description}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="neutral">{displayCategory(transaction.category)}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={transaction.type === "income" ? "success" : "danger"}>
+                              {transaction.type === "income" ? "Entrada" : "Saída"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell
+                            className={cn(
+                              "text-right font-semibold",
+                              transaction.type === "income"
+                                ? "text-emerald-300"
+                                : "text-red-300",
+                            )}
+                          >
+                            {currency.format(transaction.amount)}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                aria-label="Editar transação"
+                                size="icon"
+                                type="button"
+                                variant="ghost"
+                                onClick={() => startEditingTransaction(transaction)}
+                              >
+                                <Pencil size={16} />
+                              </Button>
+                              <Button
+                                aria-label="Remover transação"
+                                size="icon"
+                                type="button"
+                                variant="destructive"
+                                onClick={() => deleteTransaction(transaction.id)}
+                              >
+                                <Trash2 size={16} />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -2024,6 +2252,38 @@ function displayCategory(category) {
     Servicos: "Serviços",
   };
   return labels[category] || category;
+}
+
+function transactionMatchesPeriod(transaction, filter, customPeriod) {
+  if (filter === "all") return true;
+
+  const transactionDate = new Date(transaction.createdAt);
+  if (Number.isNaN(transactionDate.getTime())) return false;
+
+  const today = new Date();
+  let start;
+  let end;
+
+  if (filter === "week") {
+    start = startOfWeek(today, { weekStartsOn: 1 });
+    end = endOfWeek(today, { weekStartsOn: 1 });
+  } else if (filter === "month") {
+    start = startOfMonth(today);
+    end = endOfMonth(today);
+  } else if (filter === "year") {
+    start = startOfYear(today);
+    end = endOfYear(today);
+  } else {
+    start = customPeriod.start ? startOfDay(parseISO(customPeriod.start)) : new Date(0);
+    end = customPeriod.end ? endOfDay(parseISO(customPeriod.end)) : new Date(8640000000000000);
+  }
+
+  if (start > end) return false;
+  return isWithinInterval(transactionDate, { start, end });
+}
+
+function csvCell(value) {
+  return `"${String(value ?? "").replaceAll('"', '""')}"`;
 }
 
 function taskMatchesDeadline(task, filter) {

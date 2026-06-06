@@ -18,6 +18,7 @@ import {
   taskSchema,
   taskUpdateSchema,
   transactionSchema,
+  transactionUpdateSchema,
   validateBody,
 } from "./validation.js";
 
@@ -138,6 +139,26 @@ app.post(
       data: { description, category, type, amount, userId: req.auth.userId },
     });
     res.status(201).json(serializeTransaction(transaction));
+  }),
+);
+
+app.patch(
+  "/api/transactions/:id",
+  requireAuth,
+  validateBody(transactionUpdateSchema),
+  asyncRoute(async (req, res) => {
+    const result = await prisma.transaction.updateMany({
+      data: req.validatedBody,
+      where: { id: req.params.id, userId: req.auth.userId },
+    });
+
+    if (!result.count) {
+      res.status(404).json({ message: "Transacao nao encontrada." });
+      return;
+    }
+
+    const transaction = await prisma.transaction.findUnique({ where: { id: req.params.id } });
+    res.json(serializeTransaction(transaction));
   }),
 );
 

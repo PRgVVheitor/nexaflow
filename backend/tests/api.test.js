@@ -111,7 +111,7 @@ describe("NexaFlow API", () => {
     );
   });
 
-  it("cria, lista e remove uma transacao", async () => {
+  it("cria, lista, edita e remove uma transacao", async () => {
     const description = `${testPrefix}-transaction`;
     const created = await authenticated("post", "/api/transactions").send({
       description,
@@ -125,6 +125,20 @@ describe("NexaFlow API", () => {
 
     const listed = await authenticated("get", "/api/transactions");
     expect(listed.body.some((transaction) => transaction.id === created.body.id)).toBe(true);
+
+    const edited = await authenticated("patch", `/api/transactions/${created.body.id}`).send({
+      description: `${description}-editada`,
+      category: "Freelance",
+      type: "income",
+      amount: 75.25,
+    });
+    expect(edited.status).toBe(200);
+    expect(edited.body).toMatchObject({
+      description: `${description}-editada`,
+      category: "Freelance",
+      type: "income",
+      amount: 75.25,
+    });
 
     const removed = await authenticated("delete", `/api/transactions/${created.body.id}`);
     expect(removed.status).toBe(204);

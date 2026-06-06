@@ -56,6 +56,10 @@ export const transactionSchema = z
   })
   .strict();
 
+export const transactionUpdateSchema = transactionSchema
+  .partial()
+  .refine((data) => Object.keys(data).length > 0, "Informe ao menos um campo para atualizar.");
+
 export const taskSchema = z
   .object({
     dueDate: dateOnly.nullable().optional().default(null),

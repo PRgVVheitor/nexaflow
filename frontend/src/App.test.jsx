@@ -64,7 +64,11 @@ beforeEach(() => {
   window.history.pushState({}, "", "/");
   responses["/api/transactions"] = defaultTransactions;
   responses["/api/tasks"] = defaultTasks;
+  delete responses["/api/transactions/tx-test"];
   delete responses["/api/tasks/task-test"];
+  URL.createObjectURL = vi.fn(() => "blob:nexaflow-test");
+  URL.revokeObjectURL = vi.fn();
+  HTMLAnchorElement.prototype.click = vi.fn();
   globalThis.fetch = vi.fn(async (url) => {
     const path = new URL(url).pathname;
     return {
@@ -199,6 +203,69 @@ describe("NexaFlow", () => {
     expect(screen.getByText("Informe uma descrição com pelo menos 2 caracteres.")).toBeInTheDocument();
     expect(screen.getByText("Selecione uma categoria.")).toBeInTheDocument();
     expect(screen.getByLabelText("Descrição")).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("filtra o dashboard por período", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("nexaflow-token", "token-test");
+    render(<App />);
+
+    expect(await screen.findByText("Aluguel de teste")).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("Filtrar período"), "month");
+
+    expect(screen.queryByText("Aluguel de teste")).not.toBeInTheDocument();
+    expect(screen.getByText("Salario de teste")).toBeInTheDocument();
+  });
+
+  it("exporta somente as transações filtradas em CSV", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("nexaflow-token", "token-test");
+    render(<App />);
+
+    await screen.findByText("Salario de teste");
+    await user.selectOptions(screen.getByLabelText("Filtrar período"), "month");
+    await user.click(screen.getByRole("button", { name: "Exportar CSV" }));
+
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:nexaflow-test");
+  });
+
+  it("permite editar uma transação inline", async () => {
+    const user = userEvent.setup();
+    responses["/api/transactions/tx-test"] = {
+      ...defaultTransactions[0],
+      description: "Salario atualizado",
+      category: "Freelance",
+      amount: 6100,
+    };
+    localStorage.setItem("nexaflow-token", "token-test");
+    render(<App />);
+
+    await user.click((await screen.findAllByRole("button", { name: "Editar transação" }))[0]);
+    const description = screen.getByLabelText("Editar descrição da transação");
+    const category = screen.getByLabelText("Editar categoria da transação");
+    const amount = screen.getByLabelText("Editar valor da transação");
+
+    await user.clear(description);
+    await user.type(description, "Salario atualizado");
+    await user.selectOptions(category, "Freelance");
+    await user.clear(amount);
+    await user.type(amount, "6100");
+    await user.click(screen.getByRole("button", { name: "Salvar transação" }));
+
+    expect(await screen.findByText("Salario atualizado")).toBeInTheDocument();
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "http://127.0.0.1:3001/api/transactions/tx-test",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          amount: 6100,
+          category: "Freelance",
+          description: "Salario atualizado",
+          type: "income",
+        }),
+      }),
+    );
   });
 
   it("navega para o Taskly e exibe as tarefas", async () => {
