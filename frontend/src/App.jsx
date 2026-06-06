@@ -94,6 +94,7 @@ import {
   TableHeader,
   TableRow,
 } from "./components/ui";
+import { activateDemoMode, demoApi, demoModeKey, demoToken } from "./demo";
 import { cn } from "./lib/utils";
 
 const apiUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:3001";
@@ -149,6 +150,8 @@ const registerFormSchema = loginFormSchema.extend({
 });
 
 async function api(path, options = {}) {
+  if (localStorage.getItem(demoModeKey) === "true") return demoApi(path, options);
+
   const token = localStorage.getItem(tokenKey);
   const response = await fetch(`${apiUrl}${path}`, {
     headers: {
@@ -185,6 +188,7 @@ function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const activeTab = location.pathname === "/taskly" ? "tasks" : "finance";
+  const isDemoMode = localStorage.getItem(demoModeKey) === "true";
 
   useEffect(() => {
     if (!localStorage.getItem(tokenKey)) {
@@ -199,6 +203,7 @@ function AppContent() {
   }, []);
 
   function authenticate(response) {
+    if (response.token !== demoToken) localStorage.removeItem(demoModeKey);
     localStorage.setItem(tokenKey, response.token);
     setUser(response.user);
     navigate("/financas");
@@ -206,6 +211,7 @@ function AppContent() {
 
   function logout() {
     localStorage.removeItem(tokenKey);
+    localStorage.removeItem(demoModeKey);
     setUser(null);
     navigate("/");
     toast.success("Sessão encerrada.");
@@ -266,7 +272,10 @@ function AppContent() {
 
           <div className="flex items-center justify-between gap-3 border-l-0 border-zinc-800 sm:border-l sm:pl-3">
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-zinc-100">{user.name}</p>
+              <div className="flex items-center gap-2">
+                <p className="truncate text-sm font-semibold text-zinc-100">{user.name}</p>
+                {isDemoMode && <Badge variant="warning">Demo local</Badge>}
+              </div>
               <p className="truncate text-xs text-zinc-500">{user.email}</p>
             </div>
             <Button aria-label="Sair" size="icon" title="Sair" type="button" variant="ghost" onClick={logout}>
@@ -330,10 +339,7 @@ function AuthScreen({ onAuthenticated }) {
     setFieldErrors({});
 
     try {
-      const response = await api("/api/auth/login", {
-        method: "POST",
-        body: JSON.stringify({ email: "demo@nexaflow.app", password: "demo1234" }),
-      });
+      const response = activateDemoMode();
       onAuthenticated(response);
       toast.success("Conta demonstrativa carregada.");
     } catch (requestError) {

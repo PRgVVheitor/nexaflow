@@ -132,8 +132,12 @@ describe("NexaFlow", () => {
 
     await user.click(screen.getByRole("button", { name: "Usar conta demonstrativa" }));
 
-    expect(await screen.findByText("Heitor Teste")).toBeInTheDocument();
-    expect(localStorage.getItem("nexaflow-token")).toBe("token-demo");
+    expect(await screen.findByText("Usuário Demo")).toBeInTheDocument();
+    expect(await screen.findByText("Mercado")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Nexa Score/ })).toBeInTheDocument();
+    expect(localStorage.getItem("nexaflow-token")).toBe("demo-local-token");
+    expect(localStorage.getItem("nexaflow-demo-mode")).toBe("true");
+    expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
   it("envia somente email e senha no login", async () => {

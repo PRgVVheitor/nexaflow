@@ -120,6 +120,7 @@ Conta demonstrativa:
 
 - Email: `demo@nexaflow.app`
 - Senha: `demo1234`
+- O botão `Usar conta demonstrativa` funciona localmente mesmo sem API ou PostgreSQL ativos.
 
 ## Banco de dados
 
