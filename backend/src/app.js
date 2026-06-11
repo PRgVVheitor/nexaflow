@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import cors from "cors";
 import express from "express";
 import rateLimit from "express-rate-limit";
+import helmet from "helmet";
 import { ZodError } from "zod";
 import {
   createToken,
@@ -27,6 +28,7 @@ export const app = express();
 
 app.disable("x-powered-by");
 if (env.NODE_ENV === "production") app.set("trust proxy", 1);
+app.use(helmet());
 app.use(cors({ origin: env.CLIENT_ORIGIN }));
 app.use(express.json({ limit: "16kb" }));
 
@@ -178,18 +180,19 @@ app.patch(
     const data = { ...req.validatedBody };
     if (data.date) data.date = parseDateOnly(data.date);
 
-    const result = await prisma.transaction.updateMany({
-      data,
-      where: { id: req.params.id, userId: req.auth.userId },
-    });
-
-    if (!result.count) {
-      res.status(404).json({ message: "Transacao nao encontrada." });
-      return;
+    try {
+      const transaction = await prisma.transaction.update({
+        data,
+        where: { id: req.params.id, userId: req.auth.userId },
+      });
+      res.json(serializeTransaction(transaction));
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+        res.status(404).json({ message: "Transacao nao encontrada." });
+        return;
+      }
+      throw error;
     }
-
-    const transaction = await prisma.transaction.findUnique({ where: { id: req.params.id } });
-    res.json(serializeTransaction(transaction));
   }),
 );
 
@@ -250,18 +253,19 @@ app.patch(
       data.dueDate = data.dueDate ? parseDateOnly(data.dueDate) : null;
     }
 
-    const result = await prisma.task.updateMany({
-      data,
-      where: { id: req.params.id, userId: req.auth.userId },
-    });
-
-    if (!result.count) {
-      res.status(404).json({ message: "Tarefa nao encontrada." });
-      return;
+    try {
+      const task = await prisma.task.update({
+        data,
+        where: { id: req.params.id, userId: req.auth.userId },
+      });
+      res.json(serializeTask(task));
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+        res.status(404).json({ message: "Tarefa nao encontrada." });
+        return;
+      }
+      throw error;
     }
-
-    const task = await prisma.task.findUnique({ where: { id: req.params.id } });
-    res.json(serializeTask(task));
   }),
 );
 

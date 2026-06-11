@@ -11,11 +11,7 @@ export function publicUser(user) {
 }
 
 export function createToken(user) {
-  return jwt.sign(
-    { email: user.email, name: user.name },
-    env.JWT_SECRET,
-    { expiresIn: "7d", subject: user.id },
-  );
+  return jwt.sign({}, env.JWT_SECRET, { expiresIn: "7d", subject: user.id });
 }
 
 export async function hashPassword(password) {
