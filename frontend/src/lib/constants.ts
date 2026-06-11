@@ -1,12 +1,16 @@
+import type { TransactionType } from "./types";
+
 export const chartColors = ["#34d399", "#60a5fa", "#fbbf24", "#fb7185", "#a78bfa"];
 
-export const waveMetrics = {
+export type WaveMetricKey = "balance" | "income" | "expense";
+
+export const waveMetrics: Record<WaveMetricKey, { dataKey: WaveMetricKey; label: string }> = {
   balance: { dataKey: "balance", label: "Saldo" },
   income: { dataKey: "income", label: "Entradas" },
   expense: { dataKey: "expense", label: "Saídas" },
 };
 
-export const transactionCategories = {
+export const transactionCategories: Record<TransactionType, string[]> = {
   expense: [
     "Alimentacao",
     "Moradia",

@@ -1,12 +1,20 @@
 import { motion } from "framer-motion";
 import { CheckCircle2, Pencil, Trash2 } from "lucide-react";
 import { displayPriority, priorityVariant } from "../lib/format";
+import type { Task } from "../lib/types";
 import { cn } from "../lib/utils";
 import { EmptyState } from "./EmptyState";
 import { TaskDeadlineBadge } from "./TaskDeadlineBadge";
 import { Badge, Button } from "./ui";
 
-export function KanbanBoard({ onDelete, onEdit, onToggle, tasks }) {
+interface KanbanBoardProps {
+  onDelete: (id: string) => void;
+  onEdit: (task: Task) => void;
+  onToggle: (task: Task) => void;
+  tasks: Task[];
+}
+
+export function KanbanBoard({ onDelete, onEdit, onToggle, tasks }: KanbanBoardProps) {
   const columns = [
     {
       id: "pending",
@@ -46,7 +54,7 @@ export function KanbanBoard({ onDelete, onEdit, onToggle, tasks }) {
                 key={task.id}
                 layout
               >
-                <p className={cn("text-sm font-semibold text-zinc-100", task.done && "line-through text-zinc-400")}>
+                <p className={cn("text-sm font-semibold text-zinc-100", task.done && "line-through text-zinc-500")}>
                   {task.title}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">

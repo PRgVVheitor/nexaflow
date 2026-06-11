@@ -7,23 +7,36 @@ import { FieldError } from "../components/FieldError";
 import { Button, Input } from "../components/ui";
 import { api } from "../lib/api";
 import { loginFormSchema, registerFormSchema } from "../lib/schemas";
+import type { AuthResponse } from "../lib/types";
 import { activateDemoMode } from "../demo";
 
-export function AuthScreen({ onAuthenticated }) {
-  const [mode, setMode] = useState("login");
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
+interface AuthScreenProps {
+  onAuthenticated: (response: AuthResponse) => void;
+}
+
+interface AuthForm {
+  name: string;
+  email: string;
+  password: string;
+}
+
+export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [form, setForm] = useState<AuthForm>({ name: "", email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [fieldErrors, setFieldErrors] = useState({});
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof AuthForm, string>>>({});
   const isRegister = mode === "register";
 
-  async function submit(event) {
+  async function submit(event: React.FormEvent) {
     event.preventDefault();
     const result = (isRegister ? registerFormSchema : loginFormSchema).safeParse(form);
     if (!result.success) {
       setFieldErrors(
-        Object.fromEntries(result.error.issues.map((issue) => [issue.path[0], issue.message])),
+        Object.fromEntries(
+          result.error.issues.map((issue) => [issue.path[0], issue.message]),
+        ) as Partial<Record<keyof AuthForm, string>>,
       );
       return;
     }
@@ -32,7 +45,7 @@ export function AuthScreen({ onAuthenticated }) {
     setFieldErrors({});
 
     try {
-      const response = await api(`/api/auth/${mode}`, {
+      const response = await api<AuthResponse>(`/api/auth/${mode}`, {
         method: "POST",
         body: JSON.stringify(
           isRegister ? form : { email: form.email, password: form.password },
@@ -41,14 +54,15 @@ export function AuthScreen({ onAuthenticated }) {
       onAuthenticated(response);
       toast.success(isRegister ? "Conta criada com sucesso." : "Bem-vindo de volta.");
     } catch (requestError) {
-      setError(requestError.message);
-      toast.error(requestError.message);
+      const message = requestError instanceof Error ? requestError.message : "Erro na API.";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
   }
 
-  async function useDemo() {
+  function useDemo() {
     setLoading(true);
     setError("");
     setFieldErrors({});
@@ -58,14 +72,15 @@ export function AuthScreen({ onAuthenticated }) {
       onAuthenticated(response);
       toast.success("Conta demonstrativa carregada.");
     } catch (requestError) {
-      setError(requestError.message);
-      toast.error(requestError.message);
+      const message = requestError instanceof Error ? requestError.message : "Erro na API.";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
   }
 
-  function updateAuthField(field, value) {
+  function updateAuthField(field: keyof AuthForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
     setFieldErrors((current) => ({ ...current, [field]: undefined }));
   }

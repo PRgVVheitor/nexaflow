@@ -2,10 +2,17 @@ import { AnimatePresence, motion } from "framer-motion";
 import { BrainCircuit, MessageCircle, RotateCcw, Send, X } from "lucide-react";
 import { useState } from "react";
 import { buildCopilotResponse } from "../lib/copilot";
+import type { Intelligence, Totals, Transaction } from "../lib/types";
 import { cn } from "../lib/utils";
 import { Button, Input } from "./ui";
 
-const initialMessage = {
+interface CopilotMessage {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+}
+
+const initialMessage: CopilotMessage = {
   id: "welcome",
   role: "assistant",
   text: "Olá! Eu sou o Mikal, seu assistente financeiro. Posso analisar seu saldo, gastos e projeções.",
@@ -17,10 +24,16 @@ const suggestions = [
   "Qual meu saldo em 30 dias?",
 ];
 
-export function FinancialCopilot({ intelligence, totals, transactions }) {
+interface FinancialCopilotProps {
+  intelligence: Intelligence | null;
+  totals: Totals;
+  transactions: Transaction[];
+}
+
+export function FinancialCopilot({ intelligence, totals, transactions }: FinancialCopilotProps) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState([initialMessage]);
+  const [messages, setMessages] = useState<CopilotMessage[]>([initialMessage]);
 
   function startNewConversation() {
     setMessages([initialMessage]);

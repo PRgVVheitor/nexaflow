@@ -1,8 +1,8 @@
 import { CalendarDays } from "lucide-react";
-import { taskDeadline } from "../lib/dates";
+import { taskDeadline, type DeadlineTask } from "../lib/dates";
 import { Badge } from "./ui";
 
-export function TaskDeadlineBadge({ task }) {
+export function TaskDeadlineBadge({ task }: { task: DeadlineTask }) {
   const deadline = taskDeadline(task);
 
   return (

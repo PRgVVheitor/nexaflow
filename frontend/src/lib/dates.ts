@@ -15,34 +15,54 @@ import {
   startOfYear,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import type { BadgeVariant } from "../components/ui";
 
-export function monthKey(date) {
+export interface DatedTransaction {
+  date?: string;
+  createdAt?: string;
+}
+
+export interface DeadlineTask {
+  dueDate: string | null;
+  done?: boolean;
+}
+
+export interface CustomPeriod {
+  start?: string;
+  end?: string;
+}
+
+export function monthKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
-export function shiftMonth(key, offset) {
+export function shiftMonth(key: string, offset: number) {
   const [year, month] = key.split("-").map(Number);
-  return monthKey(new Date(year, month - 1 + offset, 1));
+  return monthKey(new Date(year!, month! - 1 + offset, 1));
 }
 
-export function formatMonth(key, formatter) {
+export function formatMonth(key: string, formatter: Intl.DateTimeFormat) {
   const [year, month] = key.split("-").map(Number);
-  return formatter.format(new Date(year, month - 1, 1)).replace(".", "");
+  return formatter.format(new Date(year!, month! - 1, 1)).replace(".", "");
 }
 
-export function transactionDay(transaction) {
-  return parseISO(transaction.date || transaction.createdAt);
+export function transactionDay(transaction: DatedTransaction) {
+  return parseISO(transaction.date || transaction.createdAt || "");
 }
 
-export function transactionMatchesPeriod(transaction, filter, customPeriod) {
+export function transactionMatchesPeriod(
+  transaction: DatedTransaction,
+  filter: string,
+  customPeriod: CustomPeriod,
+) {
   if (filter === "all") return true;
 
   const transactionDate = transactionDay(transaction);
   if (Number.isNaN(transactionDate.getTime())) return false;
 
   const today = new Date();
-  let start;
-  let end;
+  let start: Date;
+  let end: Date;
 
   if (filter === "week") {
     start = startOfWeek(today, { weekStartsOn: 1 });
@@ -62,7 +82,7 @@ export function transactionMatchesPeriod(transaction, filter, customPeriod) {
   return isWithinInterval(transactionDate, { start, end });
 }
 
-export function taskMatchesDeadline(task, filter) {
+export function taskMatchesDeadline(task: DeadlineTask, filter: string) {
   if (filter === "all") return true;
   if (!task.dueDate) return filter === "none";
 
@@ -75,7 +95,12 @@ export function taskMatchesDeadline(task, filter) {
   return false;
 }
 
-export function taskDeadline(task) {
+export interface DeadlineInfo {
+  label: string;
+  variant: BadgeVariant;
+}
+
+export function taskDeadline(task: DeadlineTask): DeadlineInfo {
   if (!task.dueDate) return { label: "Sem prazo", variant: "neutral" };
 
   const dueDate = parseISO(task.dueDate);

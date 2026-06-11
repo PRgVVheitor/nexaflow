@@ -1,6 +1,6 @@
 import { cn } from "../lib/utils";
 
-export function BrandMark({ className }) {
+export function BrandMark({ className }: { className?: string }) {
   return (
     <img
       alt="Logo NexaFlow"

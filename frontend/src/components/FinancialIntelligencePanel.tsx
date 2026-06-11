@@ -1,9 +1,15 @@
 import { ArrowUpRight, BrainCircuit, Gauge, Lightbulb, TriangleAlert } from "lucide-react";
 import { currency } from "../lib/format";
+import type { Intelligence, InsightType } from "../lib/types";
 import { cn } from "../lib/utils";
 import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui";
 
-export function FinancialIntelligencePanel({ intelligence, loading }) {
+interface FinancialIntelligencePanelProps {
+  intelligence: Intelligence | null;
+  loading: boolean;
+}
+
+export function FinancialIntelligencePanel({ intelligence, loading }: FinancialIntelligencePanelProps) {
   if (loading) {
     return (
       <div aria-label="Carregando inteligência financeira" className="grid gap-4 xl:grid-cols-3">
@@ -83,12 +89,14 @@ export function FinancialIntelligencePanel({ intelligence, loading }) {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2 text-xs">
-              {[
-                ["Economia", intelligence.score.components.savings, 40],
-                ["Saldo", intelligence.score.components.balance, 20],
-                ["Controle", intelligence.score.components.control, 20],
-                ["Consistência", intelligence.score.components.consistency, 20],
-              ].map(([label, value, maximum]) => (
+              {(
+                [
+                  ["Economia", intelligence.score.components.savings, 40],
+                  ["Saldo", intelligence.score.components.balance, 20],
+                  ["Controle", intelligence.score.components.control, 20],
+                  ["Consistência", intelligence.score.components.consistency, 20],
+                ] as const
+              ).map(([label, value, maximum]) => (
                 <div className="rounded-md border border-zinc-800 bg-zinc-950/35 px-2.5 py-2" key={label}>
                   <span className="text-zinc-400">{label}</span>
                   <strong className="float-right text-zinc-200">
@@ -164,8 +172,8 @@ export function FinancialIntelligencePanel({ intelligence, loading }) {
   );
 }
 
-function InsightIcon({ type }) {
-  const styles = {
+function InsightIcon({ type }: { type: InsightType }) {
+  const styles: Record<InsightType, string> = {
     info: "bg-sky-400/10 text-sky-300",
     success: "bg-emerald-400/10 text-emerald-300",
     warning: "bg-amber-400/10 text-amber-300",

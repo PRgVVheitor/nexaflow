@@ -1,4 +1,10 @@
-export function PageHeading({ description, eyebrow, title }) {
+interface PageHeadingProps {
+  description: string;
+  eyebrow: string;
+  title: string;
+}
+
+export function PageHeading({ description, eyebrow, title }: PageHeadingProps) {
   return (
     <div className="flex flex-col gap-2">
       <p className="text-xs font-semibold uppercase text-emerald-300">{eyebrow}</p>

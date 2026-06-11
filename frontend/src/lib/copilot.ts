@@ -1,12 +1,18 @@
 import { currency, displayCategory } from "./format";
+import type { Intelligence, Totals, Transaction } from "./types";
 
-export function buildCopilotResponse(question, transactions, totals, intelligence) {
+export function buildCopilotResponse(
+  question: string,
+  transactions: Transaction[],
+  totals: Totals,
+  intelligence: Intelligence | null,
+) {
   const normalized = question
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
   const expenses = transactions.filter((transaction) => transaction.type === "expense");
-  const expenseByCategory = expenses.reduce((result, transaction) => {
+  const expenseByCategory = expenses.reduce<Record<string, number>>((result, transaction) => {
     result[transaction.category] = (result[transaction.category] || 0) + transaction.amount;
     return result;
   }, {});
@@ -20,7 +26,7 @@ export function buildCopilotResponse(question, transactions, totals, intelligenc
       ? "Ainda não há dados suficientes para projetar seu saldo em 30 dias."
       : `Mantendo seu ritmo atual, a projeção de saldo em 30 dias é ${currency.format(
           projectedBalance,
-        )}. O risco financeiro está classificado como ${intelligence.forecast.riskLabel.toLowerCase()}.`;
+        )}. O risco financeiro está classificado como ${intelligence!.forecast.riskLabel.toLowerCase()}.`;
   }
 
   if (

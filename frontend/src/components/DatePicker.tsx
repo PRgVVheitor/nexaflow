@@ -6,7 +6,13 @@ import { DayPicker } from "react-day-picker";
 import { cn } from "../lib/utils";
 import { Button } from "./ui";
 
-export function DatePicker({ label, onChange, value }) {
+interface DatePickerProps {
+  label: string;
+  onChange: (value: string) => void;
+  value: string;
+}
+
+export function DatePicker({ label, onChange, value }: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const selected = value ? parseISO(value) : undefined;
 

@@ -1,8 +1,18 @@
 import { motion } from "framer-motion";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "../lib/utils";
 import { Card, CardContent } from "./ui";
 
-export function MetricCard({ detail, icon: Icon, index, title, tone, value }) {
+interface MetricCardProps {
+  detail: string;
+  icon: LucideIcon;
+  index: number;
+  title: string;
+  tone: "emerald" | "sky" | "rose" | "amber";
+  value: string;
+}
+
+export function MetricCard({ detail, icon: Icon, index, title, tone, value }: MetricCardProps) {
   const tones = {
     emerald: "bg-emerald-400/10 text-emerald-300",
     sky: "bg-sky-400/10 text-sky-300",

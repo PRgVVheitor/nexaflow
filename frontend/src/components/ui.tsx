@@ -1,6 +1,6 @@
 import { Slot } from "@radix-ui/react-slot";
-import { cva } from "class-variance-authority";
-import { forwardRef } from "react";
+import { cva, type VariantProps } from "class-variance-authority";
+import { forwardRef, type ComponentProps } from "react";
 import { cn } from "../lib/utils";
 
 const buttonVariants = cva(
@@ -27,20 +27,17 @@ const buttonVariants = cva(
   },
 );
 
-export function Button({
-  asChild = false,
-  className,
-  size,
-  variant,
-  ...props
-}) {
+export type ButtonProps = ComponentProps<"button"> &
+  VariantProps<typeof buttonVariants> & { asChild?: boolean };
+
+export function Button({ asChild = false, className, size, variant, ...props }: ButtonProps) {
   const Component = asChild ? Slot : "button";
   return (
     <Component className={cn(buttonVariants({ size, variant }), className)} {...props} />
   );
 }
 
-export function Card({ className, ...props }) {
+export function Card({ className, ...props }: ComponentProps<"section">) {
   return (
     <section
       className={cn(
@@ -52,47 +49,51 @@ export function Card({ className, ...props }) {
   );
 }
 
-export function CardHeader({ className, ...props }) {
+export function CardHeader({ className, ...props }: ComponentProps<"div">) {
   return <div className={cn("flex flex-col gap-1.5 p-5", className)} {...props} />;
 }
 
-export function CardTitle({ className, ...props }) {
+export function CardTitle({ className, ...props }: ComponentProps<"h2">) {
   return <h2 className={cn("text-base font-semibold text-zinc-50", className)} {...props} />;
 }
 
-export function CardDescription({ className, ...props }) {
+export function CardDescription({ className, ...props }: ComponentProps<"p">) {
   return <p className={cn("text-sm leading-6 text-zinc-400", className)} {...props} />;
 }
 
-export function CardContent({ className, ...props }) {
+export function CardContent({ className, ...props }: ComponentProps<"div">) {
   return <div className={cn("p-5 pt-0", className)} {...props} />;
 }
 
-export const Input = forwardRef(function Input({ className, ...props }, ref) {
-  return (
-    <input
-      className={cn(
-        "h-10 w-full rounded-md border border-zinc-700 bg-zinc-950/60 px-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/15 aria-[invalid=true]:border-red-400 aria-[invalid=true]:focus:border-red-400 aria-[invalid=true]:focus:ring-red-400/15",
-        className,
-      )}
-      ref={ref}
-      {...props}
-    />
-  );
-});
+export const Input = forwardRef<HTMLInputElement, ComponentProps<"input">>(
+  function Input({ className, ...props }, ref) {
+    return (
+      <input
+        className={cn(
+          "h-10 w-full rounded-md border border-zinc-700 bg-zinc-950/60 px-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/15 aria-[invalid=true]:border-red-400 aria-[invalid=true]:focus:border-red-400 aria-[invalid=true]:focus:ring-red-400/15",
+          className,
+        )}
+        ref={ref}
+        {...props}
+      />
+    );
+  },
+);
 
-export const Select = forwardRef(function Select({ className, ...props }, ref) {
-  return (
-    <select
-      className={cn(
-        "h-10 w-full rounded-md border border-zinc-700 bg-zinc-950/60 px-3 text-sm text-zinc-100 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/15 aria-[invalid=true]:border-red-400 aria-[invalid=true]:focus:border-red-400 aria-[invalid=true]:focus:ring-red-400/15",
-        className,
-      )}
-      ref={ref}
-      {...props}
-    />
-  );
-});
+export const Select = forwardRef<HTMLSelectElement, ComponentProps<"select">>(
+  function Select({ className, ...props }, ref) {
+    return (
+      <select
+        className={cn(
+          "h-10 w-full rounded-md border border-zinc-700 bg-zinc-950/60 px-3 text-sm text-zinc-100 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/15 aria-[invalid=true]:border-red-400 aria-[invalid=true]:focus:border-red-400 aria-[invalid=true]:focus:ring-red-400/15",
+          className,
+        )}
+        ref={ref}
+        {...props}
+      />
+    );
+  },
+);
 
 const badgeVariants = cva(
   "inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-xs font-semibold capitalize",
@@ -112,11 +113,17 @@ const badgeVariants = cva(
   },
 );
 
-export function Badge({ className, variant, ...props }) {
+export type BadgeVariant = VariantProps<typeof badgeVariants>["variant"];
+
+export function Badge({
+  className,
+  variant,
+  ...props
+}: ComponentProps<"span"> & VariantProps<typeof badgeVariants>) {
   return <span className={cn(badgeVariants({ variant }), className)} {...props} />;
 }
 
-export function Table({ className, ...props }) {
+export function Table({ className, ...props }: ComponentProps<"table">) {
   return (
     <div className="w-full overflow-x-auto">
       <table className={cn("w-full caption-bottom text-sm", className)} {...props} />
@@ -124,15 +131,15 @@ export function Table({ className, ...props }) {
   );
 }
 
-export function TableHeader({ className, ...props }) {
+export function TableHeader({ className, ...props }: ComponentProps<"thead">) {
   return <thead className={cn("border-b border-zinc-800", className)} {...props} />;
 }
 
-export function TableBody({ className, ...props }) {
+export function TableBody({ className, ...props }: ComponentProps<"tbody">) {
   return <tbody className={cn("[&_tr:last-child]:border-0", className)} {...props} />;
 }
 
-export function TableRow({ className, ...props }) {
+export function TableRow({ className, ...props }: ComponentProps<"tr">) {
   return (
     <tr
       className={cn(
@@ -144,11 +151,11 @@ export function TableRow({ className, ...props }) {
   );
 }
 
-export function TableHead({ className, ...props }) {
+export function TableHead({ className, ...props }: ComponentProps<"th">) {
   return (
     <th
       className={cn(
-        "h-11 px-3 text-left text-xs font-semibold uppercase text-zinc-400",
+        "h-11 px-3 text-left text-xs font-semibold uppercase text-zinc-500",
         className,
       )}
       {...props}
@@ -156,6 +163,6 @@ export function TableHead({ className, ...props }) {
   );
 }
 
-export function TableCell({ className, ...props }) {
+export function TableCell({ className, ...props }: ComponentProps<"td">) {
   return <td className={cn("px-3 py-3.5 text-zinc-300", className)} {...props} />;
 }

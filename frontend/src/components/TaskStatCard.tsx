@@ -2,7 +2,16 @@ import { motion } from "framer-motion";
 import { cn } from "../lib/utils";
 import { Card, CardContent } from "./ui";
 
-export function TaskStatCard({ detail, index, progress, title, tone, value }) {
+interface TaskStatCardProps {
+  detail: string;
+  index: number;
+  progress: number;
+  title: string;
+  tone: "amber" | "emerald" | "sky";
+  value: number;
+}
+
+export function TaskStatCard({ detail, index, progress, title, tone, value }: TaskStatCardProps) {
   const tones = {
     amber: { color: "#fbbf24", text: "text-amber-300" },
     emerald: { color: "#34d399", text: "text-emerald-300" },

@@ -4,7 +4,12 @@ import { ArrowDownRight, ArrowUpRight, Loader2, Plus } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
 import { transactionCategories } from "../lib/constants";
 import { displayCategory } from "../lib/format";
-import { transactionFormSchema } from "../lib/schemas";
+import {
+  transactionFormSchema,
+  type TransactionFormInput,
+  type TransactionFormValues,
+} from "../lib/schemas";
+import type { TransactionType } from "../lib/types";
 import { cn } from "../lib/utils";
 import { DatePicker } from "./DatePicker";
 import { FieldError } from "./FieldError";
@@ -14,7 +19,11 @@ function today() {
   return format(new Date(), "yyyy-MM-dd");
 }
 
-export function TransactionForm({ onCreate }) {
+interface TransactionFormProps {
+  onCreate: (data: TransactionFormValues) => Promise<boolean>;
+}
+
+export function TransactionForm({ onCreate }: TransactionFormProps) {
   const {
     control,
     formState: { errors, isSubmitting },
@@ -23,7 +32,7 @@ export function TransactionForm({ onCreate }) {
     reset,
     setValue,
     watch,
-  } = useForm({
+  } = useForm<TransactionFormInput, unknown, TransactionFormValues>({
     defaultValues: { amount: "", category: "", date: today(), description: "", type: "expense" },
     resolver: zodResolver(transactionFormSchema),
   });
@@ -31,12 +40,12 @@ export function TransactionForm({ onCreate }) {
   const category = watch("category");
   const categories = transactionCategories[type];
 
-  function selectType(nextType) {
+  function selectType(nextType: TransactionType) {
     setValue("type", nextType);
     if (!transactionCategories[nextType].includes(category)) setValue("category", "");
   }
 
-  async function submit(data) {
+  async function submit(data: TransactionFormValues) {
     if (await onCreate(data)) {
       reset({ amount: "", category: "", date: data.date, description: "", type: data.type });
     }

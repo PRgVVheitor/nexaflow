@@ -1,10 +1,17 @@
+import type { ApiUser, Intelligence, Task, Transaction } from "./lib/types";
+
 export const demoModeKey = "nexaflow-demo-mode";
 export const demoStoreKey = "nexaflow-demo-store";
 export const demoToken = "demo-local-token";
 const demoVersion = "3";
 const demoVersionKey = "nexaflow-demo-version";
 
-const demoUser = {
+interface DemoStore {
+  transactions: Transaction[];
+  tasks: Task[];
+}
+
+const demoUser: ApiUser = {
   id: "demo-user",
   name: "Usuário Demo",
   email: "demo@nexaflow.app",
@@ -15,8 +22,8 @@ const currency = new Intl.NumberFormat("pt-BR", {
   currency: "BRL",
 });
 
-function displayCategory(category) {
-  const labels = {
+function displayCategory(category: string) {
+  const labels: Record<string, string> = {
     Alimentacao: "Alimentação",
     Educacao: "Educação",
     Saude: "Saúde",
@@ -25,23 +32,23 @@ function displayCategory(category) {
   return labels[category] || category;
 }
 
-function createDemoStore() {
+function createDemoStore(): DemoStore {
   const now = new Date();
-  const dateWithOffset = (days) => {
+  const dateWithOffset = (days: number) => {
     const date = new Date(now);
     date.setDate(date.getDate() + days);
     return date.toISOString().slice(0, 10);
   };
-  const transactionDate = (days) => {
+  const transactionDate = (days: number) => {
     const date = new Date(now);
     date.setDate(date.getDate() - days);
     return date.toISOString();
   };
-  const transactionMonth = (monthsAgo, day) => {
+  const transactionMonth = (monthsAgo: number, day: number) => {
     const date = new Date(now.getFullYear(), now.getMonth() - monthsAgo, day, 12);
     return date.toISOString();
   };
-  const historicalTransactions = [
+  const historicalEntries: Array<[number, number, number, string]> = [
     [1, 4700, 2380, "Moradia"],
     [2, 4450, 2760, "Alimentacao"],
     [3, 5100, 2490, "Servicos"],
@@ -53,24 +60,27 @@ function createDemoStore() {
     [9, 4950, 3020, "Moradia"],
     [10, 4100, 2580, "Transporte"],
     [11, 4650, 2440, "Alimentacao"],
-  ].flatMap(([monthsAgo, income, expense, category]) => [
-    {
-      id: `demo-history-income-${monthsAgo}`,
-      description: "Renda mensal",
-      category: "Renda",
-      type: "income",
-      amount: income,
-      createdAt: transactionMonth(monthsAgo, 5),
-    },
-    {
-      id: `demo-history-expense-${monthsAgo}`,
-      description: `Gastos de ${displayCategory(category)}`,
-      category,
-      type: "expense",
-      amount: expense,
-      createdAt: transactionMonth(monthsAgo, 18),
-    },
-  ]);
+  ];
+  const historicalTransactions = historicalEntries.flatMap(
+    ([monthsAgo, income, expense, category]) => [
+      {
+        id: `demo-history-income-${monthsAgo}`,
+        description: "Renda mensal",
+        category: "Renda",
+        type: "income" as const,
+        amount: income,
+        createdAt: transactionMonth(monthsAgo, 5),
+      },
+      {
+        id: `demo-history-expense-${monthsAgo}`,
+        description: `Gastos de ${displayCategory(category)}`,
+        category,
+        type: "expense" as const,
+        amount: expense,
+        createdAt: transactionMonth(monthsAgo, 18),
+      },
+    ],
+  );
 
   return {
     transactions: [
@@ -78,7 +88,7 @@ function createDemoStore() {
         id: "demo-tx-1",
         description: "Salário",
         category: "Renda",
-        type: "income",
+        type: "income" as const,
         amount: 4200,
         createdAt: transactionDate(4),
       },
@@ -86,7 +96,7 @@ function createDemoStore() {
         id: "demo-tx-2",
         description: "Projeto freelance",
         category: "Freelance",
-        type: "income",
+        type: "income" as const,
         amount: 950,
         createdAt: transactionDate(8),
       },
@@ -94,7 +104,7 @@ function createDemoStore() {
         id: "demo-tx-3",
         description: "Aluguel",
         category: "Moradia",
-        type: "expense",
+        type: "expense" as const,
         amount: 1350,
         createdAt: transactionDate(3),
       },
@@ -102,7 +112,7 @@ function createDemoStore() {
         id: "demo-tx-4",
         description: "Mercado",
         category: "Alimentacao",
-        type: "expense",
+        type: "expense" as const,
         amount: 620,
         createdAt: transactionDate(2),
       },
@@ -110,7 +120,7 @@ function createDemoStore() {
         id: "demo-tx-5",
         description: "Assinaturas",
         category: "Servicos",
-        type: "expense",
+        type: "expense" as const,
         amount: 189,
         createdAt: transactionDate(12),
       },
@@ -123,21 +133,21 @@ function createDemoStore() {
       {
         id: "demo-task-1",
         title: "Revisar orçamento do mês",
-        priority: "alta",
+        priority: "alta" as const,
         done: false,
         dueDate: dateWithOffset(0),
       },
       {
         id: "demo-task-2",
         title: "Enviar proposta para cliente",
-        priority: "media",
+        priority: "media" as const,
         done: false,
         dueDate: dateWithOffset(2),
       },
       {
         id: "demo-task-3",
         title: "Atualizar portfólio",
-        priority: "baixa",
+        priority: "baixa" as const,
         done: true,
         dueDate: dateWithOffset(-1),
       },
@@ -145,19 +155,19 @@ function createDemoStore() {
   };
 }
 
-function readDemoStore() {
+function readDemoStore(): DemoStore {
   try {
-    return JSON.parse(localStorage.getItem(demoStoreKey)) || createDemoStore();
+    return (JSON.parse(localStorage.getItem(demoStoreKey) || "null") as DemoStore) || createDemoStore();
   } catch {
     return createDemoStore();
   }
 }
 
-function writeDemoStore(store) {
+function writeDemoStore(store: DemoStore) {
   localStorage.setItem(demoStoreKey, JSON.stringify(store));
 }
 
-function buildDemoIntelligence(transactions) {
+function buildDemoIntelligence(transactions: Transaction[]): Intelligence {
   const income = transactions
     .filter((transaction) => transaction.type === "income")
     .reduce((total, transaction) => total + transaction.amount, 0);
@@ -172,7 +182,7 @@ function buildDemoIntelligence(transactions) {
     : 0;
   const categoryTotals = transactions
     .filter((transaction) => transaction.type === "expense")
-    .reduce((totals, transaction) => {
+    .reduce<Record<string, number>>((totals, transaction) => {
       totals[transaction.category] = (totals[transaction.category] || 0) + transaction.amount;
       return totals;
     }, {});
@@ -181,7 +191,8 @@ function buildDemoIntelligence(transactions) {
   return {
     score: {
       value: score,
-      label: score >= 80 ? "Excelente" : score >= 65 ? "Saudável" : score >= 45 ? "Em atenção" : "Crítico",
+      label:
+        score >= 80 ? "Excelente" : score >= 65 ? "Saudável" : score >= 45 ? "Em atenção" : "Crítico",
       components: {
         savings: Math.min(40, Math.max(0, Math.round(savingsRate * 0.8))),
         balance: balance >= 0 ? 20 : 0,
@@ -244,10 +255,10 @@ export function activateDemoMode() {
   return { token: demoToken, user: demoUser };
 }
 
-export function demoApi(path, options = {}) {
+export function demoApi(path: string, options: RequestInit = {}): unknown {
   const method = options.method || "GET";
   const store = readDemoStore();
-  const body = options.body ? JSON.parse(options.body) : {};
+  const body = options.body ? (JSON.parse(String(options.body)) as Record<string, unknown>) : {};
 
   if (path === "/api/auth/me") return { user: demoUser };
   if (path === "/api/transactions" && method === "GET") return store.transactions;
@@ -256,9 +267,9 @@ export function demoApi(path, options = {}) {
 
   if (path === "/api/transactions" && method === "POST") {
     const transaction = {
-      ...body,
+      ...(body as unknown as Omit<Transaction, "id" | "date" | "createdAt">),
       id: `demo-tx-${Date.now()}`,
-      date: body.date || new Date().toISOString().slice(0, 10),
+      date: (body.date as string) || new Date().toISOString().slice(0, 10),
       createdAt: new Date().toISOString(),
     };
     store.transactions.unshift(transaction);
@@ -267,7 +278,11 @@ export function demoApi(path, options = {}) {
   }
 
   if (path === "/api/tasks" && method === "POST") {
-    const task = { ...body, id: `demo-task-${Date.now()}`, done: false };
+    const task = {
+      ...(body as unknown as Omit<Task, "id" | "done">),
+      id: `demo-task-${Date.now()}`,
+      done: false,
+    };
     store.tasks.unshift(task);
     writeDemoStore(store);
     return task;
@@ -275,7 +290,9 @@ export function demoApi(path, options = {}) {
 
   const transactionMatch = path.match(/^\/api\/transactions\/(.+)$/);
   if (transactionMatch) {
-    const index = store.transactions.findIndex((transaction) => transaction.id === transactionMatch[1]);
+    const index = store.transactions.findIndex(
+      (transaction) => transaction.id === transactionMatch[1],
+    );
     if (index < 0) throw new Error("Transação demonstrativa não encontrada.");
     if (method === "DELETE") {
       store.transactions.splice(index, 1);
@@ -283,7 +300,7 @@ export function demoApi(path, options = {}) {
       return null;
     }
     if (method === "PATCH") {
-      store.transactions[index] = { ...store.transactions[index], ...body };
+      store.transactions[index] = { ...store.transactions[index]!, ...body };
       writeDemoStore(store);
       return store.transactions[index];
     }
@@ -299,7 +316,7 @@ export function demoApi(path, options = {}) {
       return null;
     }
     if (method === "PATCH") {
-      store.tasks[index] = { ...store.tasks[index], ...body };
+      store.tasks[index] = { ...store.tasks[index]!, ...body };
       writeDemoStore(store);
       return store.tasks[index];
     }

@@ -15,6 +15,7 @@ import { BrandMark } from "./components/BrandMark";
 import { LoadingLabel } from "./components/skeletons";
 import { Badge, Button } from "./components/ui";
 import { api, tokenKey } from "./lib/api";
+import type { ApiUser, AuthResponse } from "./lib/types";
 import { AuthScreen } from "./pages/AuthScreen";
 import { LandingPage } from "./pages/LandingPage";
 import { demoModeKey, demoToken } from "./demo";
@@ -40,7 +41,7 @@ function App() {
 }
 
 function AppContent() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<ApiUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const navigate = useNavigate();
   const isDemoMode = localStorage.getItem(demoModeKey) === "true";
@@ -51,13 +52,13 @@ function AppContent() {
       return;
     }
 
-    api("/api/auth/me")
+    api<{ user: ApiUser }>("/api/auth/me")
       .then((response) => setUser(response.user))
       .catch(() => localStorage.removeItem(tokenKey))
       .finally(() => setAuthLoading(false));
   }, []);
 
-  function authenticate(response) {
+  function authenticate(response: AuthResponse) {
     if (response.token !== demoToken) localStorage.removeItem(demoModeKey);
     localStorage.setItem(tokenKey, response.token);
     setUser(response.user);
@@ -109,7 +110,13 @@ function AppContent() {
   );
 }
 
-function AppLayout({ isDemoMode, onLogout, user }) {
+interface AppLayoutProps {
+  isDemoMode: boolean;
+  onLogout: () => void;
+  user: ApiUser;
+}
+
+function AppLayout({ isDemoMode, onLogout, user }: AppLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const activeTab = location.pathname === "/taskly" ? "tasks" : "finance";

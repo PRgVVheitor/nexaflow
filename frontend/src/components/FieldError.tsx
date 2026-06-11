@@ -1,4 +1,4 @@
-export function FieldError({ error }) {
+export function FieldError({ error }: { error?: string | { message?: string } }) {
   if (!error) return null;
   return (
     <p className="-mt-1 text-xs text-red-300">

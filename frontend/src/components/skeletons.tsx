@@ -40,7 +40,7 @@ export function TaskStatSkeleton() {
   );
 }
 
-export function ChartSkeleton({ variant = "chart" }) {
+export function ChartSkeleton({ variant = "chart" }: { variant?: "chart" | "horizontal-bars" }) {
   if (variant === "horizontal-bars") {
     return (
       <div className="flex h-full animate-pulse flex-col justify-center gap-4 px-5">

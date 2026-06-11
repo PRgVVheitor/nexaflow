@@ -32,9 +32,10 @@ import {
 import {
   CategoryBarTooltip,
   ChartCard,
-  ComparisonTooltip,
+  MonthComparisonTooltip,
   MonthDot,
   WaveTooltip,
+  type MonthComparisonPoint,
 } from "../components/charts";
 import { DatePicker } from "../components/DatePicker";
 import { EmptyState } from "../components/EmptyState";
@@ -62,13 +63,14 @@ import {
   TableRow,
 } from "../components/ui";
 import { api } from "../lib/api";
-import { chartColors, transactionCategories, waveMetrics } from "../lib/constants";
+import { chartColors, transactionCategories, waveMetrics, type WaveMetricKey } from "../lib/constants";
 import {
   formatMonth,
   monthKey,
   shiftMonth,
   transactionDay,
   transactionMatchesPeriod,
+  type CustomPeriod,
 } from "../lib/dates";
 import {
   capitalize,
@@ -79,20 +81,63 @@ import {
   longMonth,
   shortMonth,
 } from "../lib/format";
-import { transactionFormSchema } from "../lib/schemas";
+import { transactionFormSchema, type TransactionFormValues } from "../lib/schemas";
+import type { Intelligence, Totals, Transaction, TransactionType } from "../lib/types";
 import { cn } from "../lib/utils";
 
+interface MonthSummary {
+  key: string;
+  label: string;
+  fullLabel: string;
+  income: number;
+  expense: number;
+  net: number;
+  balance: number;
+}
+
+interface WavePoint extends MonthSummary {
+  current: number;
+  previous: number;
+  previousFullLabel: string;
+  previousLabel: string;
+}
+
+interface EditingTransaction {
+  id: string;
+  description: string;
+  category: string;
+  date: string;
+  type: TransactionType;
+  amount: string;
+}
+
+function monthCumulativeByDay(transactions: Transaction[], key: string): number[] {
+  const [year, month] = key.split("-").map(Number);
+  const daysInMonth = new Date(year!, month!, 0).getDate();
+  const daily = Array.from({ length: daysInMonth }, () => 0);
+
+  for (const transaction of transactions) {
+    const date = transactionDay(transaction);
+    if (Number.isNaN(date.getTime()) || monthKey(date) !== key) continue;
+    const index = date.getDate() - 1;
+    daily[index]! += transaction.type === "income" ? transaction.amount : -transaction.amount;
+  }
+
+  let cumulative = 0;
+  return daily.map((net) => (cumulative += net));
+}
+
 export function FinanceDashboard() {
-  const [transactions, setTransactions] = useState([]);
-  const [intelligence, setIntelligence] = useState(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [intelligence, setIntelligence] = useState<Intelligence | null>(null);
   const [intelligenceLoading, setIntelligenceLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [periodFilter, setPeriodFilter] = useState("all");
-  const [customPeriod, setCustomPeriod] = useState({ start: "", end: "" });
-  const [editingTransaction, setEditingTransaction] = useState(null);
-  const [chartMode, setChartMode] = useState("evolution");
-  const [waveMetric, setWaveMetric] = useState("balance");
+  const [customPeriod, setCustomPeriod] = useState<CustomPeriod>({ start: "", end: "" });
+  const [editingTransaction, setEditingTransaction] = useState<EditingTransaction | null>(null);
+  const [chartMode, setChartMode] = useState<"evolution" | "comparison">("evolution");
+  const [waveMetric, setWaveMetric] = useState<WaveMetricKey>("balance");
   const [selectedMonth, setSelectedMonth] = useState(() => monthKey(new Date()));
   const [comparisonMonth, setComparisonMonth] = useState(() =>
     shiftMonth(monthKey(new Date()), -1),
@@ -106,8 +151,8 @@ export function FinanceDashboard() {
     setError("");
     try {
       const [transactionsResult, intelligenceResult] = await Promise.allSettled([
-        api("/api/transactions"),
-        api("/api/finance/intelligence"),
+        api<Transaction[]>("/api/transactions"),
+        api<Intelligence>("/api/finance/intelligence"),
       ]);
       if (transactionsResult.status === "rejected") throw transactionsResult.reason;
       setTransactions(transactionsResult.value);
@@ -115,7 +160,7 @@ export function FinanceDashboard() {
         setIntelligence(intelligenceResult.value);
       }
     } catch (requestError) {
-      setError(requestError.message);
+      setError(requestError instanceof Error ? requestError.message : "Erro na API.");
     } finally {
       setLoading(false);
       setIntelligenceLoading(false);
@@ -124,14 +169,15 @@ export function FinanceDashboard() {
 
   async function refreshIntelligence() {
     try {
-      setIntelligence(await api("/api/finance/intelligence"));
+      setIntelligence(await api<Intelligence>("/api/finance/intelligence"));
     } catch (requestError) {
-      toast.error(requestError.message);
+      toast.error(requestError instanceof Error ? requestError.message : "Erro na API.");
     }
   }
 
   useEffect(() => {
     loadTransactions();
+     
   }, []);
 
   const categories = useMemo(
@@ -151,7 +197,7 @@ export function FinanceDashboard() {
     });
   }, [transactions, categoryFilter, search, periodFilter, customPeriod]);
 
-  const totals = useMemo(() => {
+  const totals = useMemo<Totals>(() => {
     const income = filteredTransactions
       .filter((item) => item.type === "income")
       .reduce((total, item) => total + item.amount, 0);
@@ -170,7 +216,7 @@ export function FinanceDashboard() {
   const expenseByCategory = useMemo(() => {
     const grouped = filteredTransactions
       .filter((item) => item.type === "expense")
-      .reduce((result, item) => {
+      .reduce<Record<string, number>>((result, item) => {
         result[item.category] = (result[item.category] || 0) + item.amount;
         return result;
       }, {});
@@ -180,7 +226,7 @@ export function FinanceDashboard() {
       .sort((a, b) => b.value - a.value);
   }, [filteredTransactions]);
 
-  const monthlyHistory = useMemo(() => {
+  const monthlyHistory = useMemo<MonthSummary[]>(() => {
     const endMonth = monthKey(new Date());
     const months = Array.from({ length: 12 }, (_, index) =>
       shiftMonth(endMonth, index - 11),
@@ -200,13 +246,14 @@ export function FinanceDashboard() {
 
     filteredTransactions.forEach((item) => {
       const key = monthKey(transactionDay(item));
-      if (!grouped[key]) return;
-      grouped[key][item.type === "income" ? "income" : "expense"] += item.amount;
+      const month = grouped[key];
+      if (!month) return;
+      month[item.type === "income" ? "income" : "expense"] += item.amount;
     });
 
     let balance = 0;
     return months.map((key) => {
-      const month = grouped[key];
+      const month = grouped[key]!;
       const net = month.income - month.expense;
       balance += net;
       return { ...month, balance, net };
@@ -215,7 +262,7 @@ export function FinanceDashboard() {
 
   const monthlyData = useMemo(() => monthlyHistory.slice(-6), [monthlyHistory]);
 
-  const waveData = useMemo(() => {
+  const waveData = useMemo<WavePoint[]>(() => {
     const previousMonths = monthlyHistory.slice(0, 6);
     const currentMonths = monthlyHistory.slice(-6);
     const metric = waveMetrics[waveMetric].dataKey;
@@ -223,7 +270,7 @@ export function FinanceDashboard() {
     let previousBalance = 0;
 
     return currentMonths.map((month, index) => {
-      const previousMonth = previousMonths[index];
+      const previousMonth = previousMonths[index]!;
       currentBalance += month.net;
       previousBalance += previousMonth.net;
 
@@ -245,27 +292,26 @@ export function FinanceDashboard() {
   }, [comparisonMonth, monthlyData, selectedMonth]);
 
   const selectedMonthData =
-    monthlyData.find((item) => item.key === selectedMonth) || monthlyData.at(-1);
+    monthlyData.find((item) => item.key === selectedMonth) || monthlyData.at(-1)!;
   const comparisonMonthData =
-    monthlyData.find((item) => item.key === comparisonMonth) || monthlyData.at(-2);
-  const comparisonData = [
-    {
-      name: selectedMonthData.label,
-      Entradas: selectedMonthData.income,
-      Saídas: selectedMonthData.expense,
-      Saldo: selectedMonthData.net,
-    },
-    {
-      name: comparisonMonthData.label,
-      Entradas: comparisonMonthData.income,
-      Saídas: comparisonMonthData.expense,
-      Saldo: comparisonMonthData.net,
-    },
-  ];
+    monthlyData.find((item) => item.key === comparisonMonth) || monthlyData.at(-2)!;
+
+  const comparisonWaveData = useMemo<MonthComparisonPoint[]>(() => {
+    const current = monthCumulativeByDay(filteredTransactions, selectedMonthData.key);
+    const previous = monthCumulativeByDay(filteredTransactions, comparisonMonthData.key);
+    const length = Math.max(current.length, previous.length);
+
+    return Array.from({ length }, (_, index) => ({
+      day: index + 1,
+      current: current[index],
+      previous: previous[index],
+    }));
+  }, [filteredTransactions, selectedMonthData.key, comparisonMonthData.key]);
+
   const comparisonDelta = selectedMonthData.net - comparisonMonthData.net;
   const hasFinancialActivity = filteredTransactions.length > 0;
   const waveInsight = useMemo(() => {
-    const bestMonth = waveData.reduce(
+    const bestMonth = waveData.reduce<WavePoint | null>(
       (best, month) => (!best || month.current > best.current ? month : best),
       null,
     );
@@ -279,15 +325,17 @@ export function FinanceDashboard() {
       percentage === null
         ? "sem base equivalente no período anterior"
         : `${percentage >= 0 ? "+" : ""}${percentage}% contra o período anterior`;
+    const highlight =
+      waveMetric === "expense"
+        ? "concentrou o maior volume de saídas"
+        : `teve o melhor resultado em ${waveMetrics[waveMetric].label.toLowerCase()}`;
 
-    return `${capitalize(bestMonth.fullLabel)} teve o melhor resultado em ${waveMetrics[
-      waveMetric
-    ].label.toLowerCase()}: ${currency.format(bestMonth.current)} (${comparisonText}).`;
+    return `${capitalize(bestMonth.fullLabel)} ${highlight}: ${currency.format(bestMonth.current)} (${comparisonText}).`;
   }, [waveData, waveMetric]);
 
-  async function createTransaction(data) {
+  async function createTransaction(data: TransactionFormValues) {
     try {
-      const created = await api("/api/transactions", {
+      const created = await api<Transaction>("/api/transactions", {
         method: "POST",
         body: JSON.stringify(data),
       });
@@ -296,23 +344,23 @@ export function FinanceDashboard() {
       toast.success("Transação adicionada.");
       return true;
     } catch (requestError) {
-      toast.error(requestError.message);
+      toast.error(requestError instanceof Error ? requestError.message : "Erro na API.");
       return false;
     }
   }
 
-  async function deleteTransaction(id) {
+  async function deleteTransaction(id: string) {
     try {
       await api(`/api/transactions/${id}`, { method: "DELETE" });
       setTransactions((current) => current.filter((item) => item.id !== id));
       refreshIntelligence();
       toast.success("Transação removida.");
     } catch (requestError) {
-      toast.error(requestError.message);
+      toast.error(requestError instanceof Error ? requestError.message : "Erro na API.");
     }
   }
 
-  function startEditingTransaction(transaction) {
+  function startEditingTransaction(transaction: Transaction) {
     setEditingTransaction({
       id: transaction.id,
       description: transaction.description,
@@ -324,6 +372,7 @@ export function FinanceDashboard() {
   }
 
   async function saveTransaction() {
+    if (!editingTransaction) return;
     const result = transactionFormSchema.safeParse({
       amount: editingTransaction.amount,
       category: editingTransaction.category,
@@ -332,12 +381,12 @@ export function FinanceDashboard() {
       type: editingTransaction.type,
     });
     if (!result.success) {
-      toast.error(result.error.issues[0].message);
+      toast.error(result.error.issues[0]!.message);
       return;
     }
 
     try {
-      const updated = await api(`/api/transactions/${editingTransaction.id}`, {
+      const updated = await api<Transaction>(`/api/transactions/${editingTransaction.id}`, {
         method: "PATCH",
         body: JSON.stringify(result.data),
       });
@@ -348,7 +397,7 @@ export function FinanceDashboard() {
       refreshIntelligence();
       toast.success("Transação atualizada.");
     } catch (requestError) {
-      toast.error(requestError.message);
+      toast.error(requestError instanceof Error ? requestError.message : "Erro na API.");
     }
   }
 
@@ -383,28 +432,28 @@ export function FinanceDashboard() {
       value: currency.format(totals.balance),
       detail: "Disponível no período",
       icon: WalletCards,
-      tone: "emerald",
+      tone: "emerald" as const,
     },
     {
       title: "Entradas",
       value: currency.format(totals.income),
       detail: `${filteredTransactions.filter((item) => item.type === "income").length} lançamentos`,
       icon: ArrowUpRight,
-      tone: "sky",
+      tone: "sky" as const,
     },
     {
       title: "Saídas",
       value: currency.format(totals.expense),
       detail: `${filteredTransactions.filter((item) => item.type === "expense").length} lançamentos`,
       icon: ArrowDownRight,
-      tone: "rose",
+      tone: "rose" as const,
     },
     {
       title: "Taxa de economia",
       value: `${totals.savingsRate}%`,
       detail: "Do total de entradas",
       icon: Target,
-      tone: "amber",
+      tone: "amber" as const,
     },
   ];
 
@@ -444,12 +493,12 @@ export function FinanceDashboard() {
             <>
               <DatePicker
                 label="Data inicial"
-                value={customPeriod.start}
+                value={customPeriod.start ?? ""}
                 onChange={(start) => setCustomPeriod((current) => ({ ...current, start }))}
               />
               <DatePicker
                 label="Data final"
-                value={customPeriod.end}
+                value={customPeriod.end ?? ""}
                 onChange={(end) => setCustomPeriod((current) => ({ ...current, end }))}
               />
             </>
@@ -487,7 +536,7 @@ export function FinanceDashboard() {
               <YAxis axisLine={false} tickFormatter={compactCurrency} tickLine={false} />
               <Tooltip
                 cursor={{ fill: "#27272a", opacity: 0.45 }}
-                formatter={(value) => currency.format(value)}
+                formatter={(value) => currency.format(Number(value))}
               />
               <Bar barSize={72} dataKey="valor" maxBarSize={72} radius={[7, 7, 0, 0]}>
                 <Cell fill="#34d399" />
@@ -540,7 +589,7 @@ export function FinanceDashboard() {
                       dataKey="value"
                       fill="#a1a1aa"
                       fontSize={11}
-                      formatter={compactCurrency}
+                      formatter={(value) => compactCurrency(Number(value))}
                       position="right"
                     />
                   </Bar>
@@ -589,19 +638,21 @@ export function FinanceDashboard() {
                 className="grid grid-cols-3 rounded-md border border-zinc-800 bg-zinc-950/60 p-1"
                 role="group"
               >
-                {Object.entries(waveMetrics).map(([key, metric]) => (
-                  <Button
-                    aria-pressed={waveMetric === key}
-                    className="min-h-8 h-8"
-                    key={key}
-                    size="sm"
-                    type="button"
-                    variant={waveMetric === key ? "secondary" : "ghost"}
-                    onClick={() => setWaveMetric(key)}
-                  >
-                    {metric.label}
-                  </Button>
-                ))}
+                {(Object.entries(waveMetrics) as Array<[WaveMetricKey, { label: string }]>).map(
+                  ([key, metric]) => (
+                    <Button
+                      aria-pressed={waveMetric === key}
+                      className="min-h-8 h-8"
+                      key={key}
+                      size="sm"
+                      type="button"
+                      variant={waveMetric === key ? "secondary" : "ghost"}
+                      onClick={() => setWaveMetric(key)}
+                    >
+                      {metric.label}
+                    </Button>
+                  ),
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
@@ -645,7 +696,7 @@ export function FinanceDashboard() {
         description={
           chartMode === "evolution"
             ? "Compare o ritmo dos seis meses atuais com o período equivalente anterior."
-            : "Compare entradas, saídas e saldo entre dois meses."
+            : "Compare o saldo acumulado dia a dia entre dois meses."
         }
         title={chartMode === "evolution" ? "Evolução financeira" : "Comparação mensal"}
       >
@@ -705,11 +756,14 @@ export function FinanceDashboard() {
                   <Area
                     activeDot={{ fill: "#6ee7b7", r: 6, stroke: "#09090b", strokeWidth: 3 }}
                     dataKey="current"
-                    dot={(props) => (
+                    dot={(props: { cx?: number; cy?: number; payload?: WavePoint }) => (
                       <MonthDot
-                        {...props}
+                        cx={props.cx}
+                        cy={props.cy}
+                        key={props.payload?.key}
+                        payload={props.payload}
                         onSelect={setSelectedMonth}
-                        selected={props.payload.key === selectedMonth}
+                        selected={props.payload?.key === selectedMonth}
                       />
                     )}
                     fill="url(#balanceWave)"
@@ -744,21 +798,98 @@ export function FinanceDashboard() {
                   {currency.format(comparisonDelta)}
                 </strong>
               </div>
-              <div className="min-h-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-zinc-400">
+                <span className="flex items-center gap-2">
+                  <span className="h-0.5 w-5 rounded-full bg-emerald-400" />
+                  {capitalize(selectedMonthData.fullLabel)}
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="h-0.5 w-5 rounded-full bg-zinc-500" />
+                  {capitalize(comparisonMonthData.fullLabel)}
+                </span>
+              </div>
+              <div
+                aria-label="Gráfico de onda comparando o saldo acumulado dos dois meses"
+                className="min-h-0 flex-1"
+                role="img"
+              >
                 <ResponsiveContainer height="100%" width="100%">
-                  <BarChart data={comparisonData}>
+                  <AreaChart data={comparisonWaveData}>
+                    <defs>
+                      <linearGradient id="comparisonWave" x1="0" x2="0" y1="0" y2="1">
+                        <stop offset="0%" stopColor="#34d399" stopOpacity={0.42} />
+                        <stop offset="55%" stopColor="#34d399" stopOpacity={0.12} />
+                        <stop offset="100%" stopColor="#34d399" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
                     <CartesianGrid stroke="#27272a" strokeDasharray="4 4" vertical={false} />
-                    <XAxis axisLine={false} dataKey="name" tickLine={false} />
+                    <XAxis
+                      axisLine={false}
+                      dataKey="day"
+                      tickFormatter={(day) => `dia ${day}`}
+                      tickLine={false}
+                      ticks={[1, 5, 10, 15, 20, 25, comparisonWaveData.length]}
+                    />
                     <YAxis axisLine={false} tickFormatter={compactCurrency} tickLine={false} />
                     <Tooltip
-                      content={<ComparisonTooltip />}
-                      cursor={{ fill: "#27272a", opacity: 0.35 }}
+                      content={
+                        <MonthComparisonTooltip
+                          currentLabel={capitalize(selectedMonthData.fullLabel)}
+                          previousLabel={capitalize(comparisonMonthData.fullLabel)}
+                        />
+                      }
+                      cursor={{ stroke: "#3f3f46" }}
                     />
-                    <Bar dataKey="Entradas" fill="#34d399" radius={[5, 5, 0, 0]} />
-                    <Bar dataKey="Saídas" fill="#fb7185" radius={[5, 5, 0, 0]} />
-                    <Bar dataKey="Saldo" fill="#60a5fa" radius={[5, 5, 0, 0]} />
-                  </BarChart>
+                    <Area
+                      dataKey="previous"
+                      dot={false}
+                      fill="transparent"
+                      name={capitalize(comparisonMonthData.fullLabel)}
+                      stroke="#71717a"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      type="natural"
+                    />
+                    <Area
+                      activeDot={{ fill: "#6ee7b7", r: 6, stroke: "#09090b", strokeWidth: 3 }}
+                      dataKey="current"
+                      dot={false}
+                      fill="url(#comparisonWave)"
+                      name={capitalize(selectedMonthData.fullLabel)}
+                      stroke="#34d399"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={3}
+                      type="natural"
+                    />
+                  </AreaChart>
                 </ResponsiveContainer>
+              </div>
+              <div className="grid gap-2 border-t border-zinc-800 pt-3 text-xs sm:grid-cols-2">
+                {[
+                  { month: selectedMonthData, dotClass: "bg-emerald-400" },
+                  { month: comparisonMonthData, dotClass: "bg-zinc-500" },
+                ].map(({ month, dotClass }) => (
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-zinc-400" key={month.key}>
+                    <span className="flex items-center gap-2 font-semibold text-zinc-200">
+                      <span className={cn("size-2 rounded-full", dotClass)} />
+                      {capitalize(month.fullLabel)}
+                    </span>
+                    <span>
+                      Entradas <strong className="text-emerald-300">{currency.format(month.income)}</strong>
+                    </span>
+                    <span>
+                      Saídas <strong className="text-rose-300">{currency.format(month.expense)}</strong>
+                    </span>
+                    <span>
+                      Saldo{" "}
+                      <strong className={month.net >= 0 ? "text-emerald-300" : "text-rose-300"}>
+                        {currency.format(month.net)}
+                      </strong>
+                    </span>
+                  </div>
+                ))}
               </div>
             </motion.div>
         )}
@@ -774,7 +905,7 @@ export function FinanceDashboard() {
             <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_180px_auto]">
               <div className="relative">
                 <Search
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
                   size={16}
                 />
                 <Input
@@ -841,10 +972,9 @@ export function FinanceDashboard() {
                               type="date"
                               value={editingTransaction.date}
                               onChange={(event) =>
-                                setEditingTransaction((current) => ({
-                                  ...current,
-                                  date: event.target.value,
-                                }))
+                                setEditingTransaction((current) =>
+                                  current ? { ...current, date: event.target.value } : current,
+                                )
                               }
                             />
                           </TableCell>
@@ -853,10 +983,11 @@ export function FinanceDashboard() {
                               aria-label="Editar descrição da transação"
                               value={editingTransaction.description}
                               onChange={(event) =>
-                                setEditingTransaction((current) => ({
-                                  ...current,
-                                  description: event.target.value,
-                                }))
+                                setEditingTransaction((current) =>
+                                  current
+                                    ? { ...current, description: event.target.value }
+                                    : current,
+                                )
                               }
                             />
                           </TableCell>
@@ -865,10 +996,9 @@ export function FinanceDashboard() {
                               aria-label="Editar categoria da transação"
                               value={editingTransaction.category}
                               onChange={(event) =>
-                                setEditingTransaction((current) => ({
-                                  ...current,
-                                  category: event.target.value,
-                                }))
+                                setEditingTransaction((current) =>
+                                  current ? { ...current, category: event.target.value } : current,
+                                )
                               }
                             >
                               {transactionCategories[editingTransaction.type].map((category) => (
@@ -883,14 +1013,20 @@ export function FinanceDashboard() {
                               aria-label="Editar tipo da transação"
                               value={editingTransaction.type}
                               onChange={(event) => {
-                                const type = event.target.value;
-                                setEditingTransaction((current) => ({
-                                  ...current,
-                                  type,
-                                  category: transactionCategories[type].includes(current.category)
-                                    ? current.category
-                                    : transactionCategories[type][0],
-                                }));
+                                const type = event.target.value as TransactionType;
+                                setEditingTransaction((current) =>
+                                  current
+                                    ? {
+                                        ...current,
+                                        type,
+                                        category: transactionCategories[type].includes(
+                                          current.category,
+                                        )
+                                          ? current.category
+                                          : transactionCategories[type][0]!,
+                                      }
+                                    : current,
+                                );
                               }}
                             >
                               <option value="income">Entrada</option>
@@ -905,10 +1041,9 @@ export function FinanceDashboard() {
                               type="number"
                               value={editingTransaction.amount}
                               onChange={(event) =>
-                                setEditingTransaction((current) => ({
-                                  ...current,
-                                  amount: event.target.value,
-                                }))
+                                setEditingTransaction((current) =>
+                                  current ? { ...current, amount: event.target.value } : current,
+                                )
                               }
                             />
                           </TableCell>

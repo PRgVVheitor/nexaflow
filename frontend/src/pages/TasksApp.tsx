@@ -36,15 +36,23 @@ import {
 import { api } from "../lib/api";
 import { taskMatchesDeadline } from "../lib/dates";
 import { displayPriority, priorityVariant } from "../lib/format";
-import { taskFormSchema } from "../lib/schemas";
+import { taskFormSchema, type TaskFormValues } from "../lib/schemas";
+import type { Task, TaskPriority } from "../lib/types";
 import { cn } from "../lib/utils";
 
+interface EditingTask {
+  id: string;
+  title: string;
+  priority: TaskPriority;
+  dueDate: string;
+}
+
 export function TasksApp() {
-  const [tasks, setTasks] = useState([]);
-  const [filter, setFilter] = useState("all");
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [filter, setFilter] = useState<"all" | "pending" | "done">("all");
   const [deadlineFilter, setDeadlineFilter] = useState("all");
-  const [viewMode, setViewMode] = useState("list");
-  const [editingTask, setEditingTask] = useState(null);
+  const [viewMode, setViewMode] = useState<"list" | "board">("list");
+  const [editingTask, setEditingTask] = useState<EditingTask | null>(null);
   const [loading, setLoading] = useState(true);
   const {
     control: taskControl,
@@ -52,7 +60,7 @@ export function TasksApp() {
     handleSubmit: handleTaskSubmit,
     register: registerTask,
     reset: resetTask,
-  } = useForm({
+  } = useForm<TaskFormValues>({
     defaultValues: { dueDate: "", priority: "media", title: "" },
     resolver: zodResolver(taskFormSchema),
   });
@@ -60,9 +68,9 @@ export function TasksApp() {
   async function loadTasks() {
     setLoading(true);
     try {
-      setTasks(await api("/api/tasks"));
+      setTasks(await api<Task[]>("/api/tasks"));
     } catch (requestError) {
-      toast.error(requestError.message);
+      toast.error(requestError instanceof Error ? requestError.message : "Erro na API.");
     } finally {
       setLoading(false);
     }
@@ -70,6 +78,7 @@ export function TasksApp() {
 
   useEffect(() => {
     loadTasks();
+     
   }, []);
 
   const deadlineTasks = tasks.filter((task) => taskMatchesDeadline(task, deadlineFilter));
@@ -85,9 +94,9 @@ export function TasksApp() {
     done: tasks.filter((task) => task.done).length,
   };
 
-  async function createTask(data) {
+  async function createTask(data: TaskFormValues) {
     try {
-      const created = await api("/api/tasks", {
+      const created = await api<Task>("/api/tasks", {
         method: "POST",
         body: JSON.stringify({ ...data, dueDate: data.dueDate || null }),
       });
@@ -95,24 +104,24 @@ export function TasksApp() {
       resetTask({ dueDate: "", priority: "media", title: "" });
       toast.success("Tarefa adicionada.");
     } catch (requestError) {
-      toast.error(requestError.message);
+      toast.error(requestError instanceof Error ? requestError.message : "Erro na API.");
     }
   }
 
-  async function toggleTask(task) {
+  async function toggleTask(task: Task) {
     try {
-      const updated = await api(`/api/tasks/${task.id}`, {
+      const updated = await api<Task>(`/api/tasks/${task.id}`, {
         method: "PATCH",
         body: JSON.stringify({ done: !task.done }),
       });
       setTasks((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       toast.success(updated.done ? "Tarefa concluída." : "Tarefa reaberta.");
     } catch (requestError) {
-      toast.error(requestError.message);
+      toast.error(requestError instanceof Error ? requestError.message : "Erro na API.");
     }
   }
 
-  function startEditingTask(task) {
+  function startEditingTask(task: Task) {
     setEditingTask({
       id: task.id,
       title: task.title,
@@ -121,15 +130,16 @@ export function TasksApp() {
     });
   }
 
-  async function saveTask(event) {
+  async function saveTask(event: React.FormEvent) {
     event.preventDefault();
+    if (!editingTask) return;
     const result = taskFormSchema.safeParse(editingTask);
     if (!result.success) {
-      toast.error(result.error.issues[0].message);
+      toast.error(result.error.issues[0]!.message);
       return;
     }
     try {
-      const updated = await api(`/api/tasks/${editingTask.id}`, {
+      const updated = await api<Task>(`/api/tasks/${editingTask.id}`, {
         method: "PATCH",
         body: JSON.stringify({
           title: result.data.title,
@@ -141,22 +151,22 @@ export function TasksApp() {
       setEditingTask(null);
       toast.success("Tarefa atualizada.");
     } catch (requestError) {
-      toast.error(requestError.message);
+      toast.error(requestError instanceof Error ? requestError.message : "Erro na API.");
     }
   }
 
-  async function deleteTask(id) {
+  async function deleteTask(id: string) {
     try {
       await api(`/api/tasks/${id}`, { method: "DELETE" });
       setTasks((current) => current.filter((item) => item.id !== id));
       if (editingTask?.id === id) setEditingTask(null);
       toast.success("Tarefa removida.");
     } catch (requestError) {
-      toast.error(requestError.message);
+      toast.error(requestError instanceof Error ? requestError.message : "Erro na API.");
     }
   }
 
-  function editFromBoard(task) {
+  function editFromBoard(task: Task) {
     startEditingTask(task);
     setViewMode("list");
   }
@@ -231,7 +241,7 @@ export function TasksApp() {
                   render={({ field }) => (
                     <DatePicker
                       label="Prazo da tarefa"
-                      value={field.value}
+                      value={field.value ?? ""}
                       onChange={field.onChange}
                     />
                   )}
@@ -256,11 +266,13 @@ export function TasksApp() {
             <div className="flex flex-wrap gap-2">
               {viewMode === "list" && (
                 <div className="grid grid-cols-3 rounded-lg border border-zinc-800 bg-zinc-950/40 p-1">
-                {[
-                  ["all", "Todas"],
-                  ["pending", "Pendentes"],
-                  ["done", "Concluídas"],
-                ].map(([id, label]) => (
+                {(
+                  [
+                    ["all", "Todas"],
+                    ["pending", "Pendentes"],
+                    ["done", "Concluídas"],
+                  ] as const
+                ).map(([id, label]) => (
                   <Button
                     className={cn(filter === id && "bg-zinc-700 text-zinc-50")}
                     key={id}
@@ -358,20 +370,20 @@ export function TasksApp() {
                           required
                           value={editingTask.title}
                           onChange={(event) =>
-                            setEditingTask((current) => ({
-                              ...current,
-                              title: event.target.value,
-                            }))
+                            setEditingTask((current) =>
+                              current ? { ...current, title: event.target.value } : current,
+                            )
                           }
                         />
                         <Select
                           aria-label="Editar prioridade da tarefa"
                           value={editingTask.priority}
                           onChange={(event) =>
-                            setEditingTask((current) => ({
-                              ...current,
-                              priority: event.target.value,
-                            }))
+                            setEditingTask((current) =>
+                              current
+                                ? { ...current, priority: event.target.value as TaskPriority }
+                                : current,
+                            )
                           }
                         >
                           <option value="alta">Alta</option>
@@ -381,11 +393,10 @@ export function TasksApp() {
                         <DatePicker
                           label="Editar prazo da tarefa"
                           value={editingTask.dueDate}
-                          onChange={(event) =>
-                            setEditingTask((current) => ({
-                              ...current,
-                              dueDate: event,
-                            }))
+                          onChange={(value) =>
+                            setEditingTask((current) =>
+                              current ? { ...current, dueDate: value } : current,
+                            )
                           }
                         />
                         <div className="flex justify-end gap-1">
@@ -408,7 +419,7 @@ export function TasksApp() {
                         <p
                           className={cn(
                             "truncate text-sm font-semibold text-zinc-100",
-                            task.done && "text-zinc-400 line-through",
+                            task.done && "text-zinc-500 line-through",
                           )}
                         >
                           {task.title}

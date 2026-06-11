@@ -1,6 +1,6 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 
 const today = new Date();
@@ -69,7 +69,7 @@ const defaultIntelligence = {
   ],
 };
 
-const responses = {
+const responses: Record<string, unknown> = {
   "/api/auth/login": {
     token: "token-demo",
     user: {
@@ -90,6 +90,11 @@ const responses = {
   "/api/tasks": defaultTasks,
 };
 
+beforeAll(async () => {
+  await import("./pages/FinanceDashboard");
+  await import("./pages/TasksApp");
+}, 30000);
+
 beforeEach(() => {
   localStorage.clear();
   window.history.pushState({}, "", "/");
@@ -101,14 +106,14 @@ beforeEach(() => {
   URL.createObjectURL = vi.fn(() => "blob:nexaflow-test");
   URL.revokeObjectURL = vi.fn();
   HTMLAnchorElement.prototype.click = vi.fn();
-  globalThis.fetch = vi.fn(async (url) => {
-    const path = new URL(url).pathname;
+  globalThis.fetch = vi.fn(async (url: string | URL | Request) => {
+    const path = new URL(String(url)).pathname;
     return {
       ok: true,
       status: 200,
       json: async () => responses[path] || [],
     };
-  });
+  }) as unknown as typeof fetch;
 });
 
 afterEach(() => {
