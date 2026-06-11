@@ -1,10 +1,11 @@
 import { motion } from "framer-motion";
 import { ClipboardList, DollarSign, LogOut } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import {
   BrowserRouter,
   Navigate,
+  Outlet,
   Route,
   Routes,
   useLocation,
@@ -15,9 +16,15 @@ import { LoadingLabel } from "./components/skeletons";
 import { Badge, Button } from "./components/ui";
 import { api, tokenKey } from "./lib/api";
 import { AuthScreen } from "./pages/AuthScreen";
-import { FinanceDashboard } from "./pages/FinanceDashboard";
-import { TasksApp } from "./pages/TasksApp";
+import { LandingPage } from "./pages/LandingPage";
 import { demoModeKey, demoToken } from "./demo";
+
+const FinanceDashboard = lazy(() =>
+  import("./pages/FinanceDashboard").then((module) => ({ default: module.FinanceDashboard })),
+);
+const TasksApp = lazy(() =>
+  import("./pages/TasksApp").then((module) => ({ default: module.TasksApp })),
+);
 
 const tabs = [
   { id: "finance", label: "Finanças", icon: DollarSign, path: "/financas" },
@@ -35,9 +42,7 @@ function App() {
 function AppContent() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const location = useLocation();
   const navigate = useNavigate();
-  const activeTab = location.pathname === "/taskly" ? "tasks" : "finance";
   const isDemoMode = localStorage.getItem(demoModeKey) === "true";
 
   useEffect(() => {
@@ -71,9 +76,43 @@ function AppContent() {
     return <FullPageLoading />;
   }
 
-  if (!user) {
-    return <AuthScreen onAuthenticated={authenticate} />;
-  }
+  return (
+    <Routes>
+      <Route
+        element={user ? <Navigate replace to="/financas" /> : <LandingPage />}
+        path="/"
+      />
+      <Route
+        element={
+          user ? (
+            <Navigate replace to="/financas" />
+          ) : (
+            <AuthScreen onAuthenticated={authenticate} />
+          )
+        }
+        path="/login"
+      />
+      <Route
+        element={
+          user ? (
+            <AppLayout isDemoMode={isDemoMode} user={user} onLogout={logout} />
+          ) : (
+            <Navigate replace to="/login" />
+          )
+        }
+      >
+        <Route element={<FinanceDashboard />} path="/financas" />
+        <Route element={<TasksApp />} path="/taskly" />
+      </Route>
+      <Route element={<Navigate replace to="/" />} path="*" />
+    </Routes>
+  );
+}
+
+function AppLayout({ isDemoMode, onLogout, user }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const activeTab = location.pathname === "/taskly" ? "tasks" : "finance";
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-[1440px] px-3 py-4 sm:px-6 sm:py-5 lg:px-8">
@@ -119,20 +158,18 @@ function AppContent() {
                 <p className="truncate text-sm font-semibold text-zinc-100">{user.name}</p>
                 {isDemoMode && <Badge variant="warning">Demo local</Badge>}
               </div>
-              <p className="truncate text-xs text-zinc-500">{user.email}</p>
+              <p className="truncate text-xs text-zinc-400">{user.email}</p>
             </div>
-            <Button aria-label="Sair" size="icon" title="Sair" type="button" variant="ghost" onClick={logout}>
+            <Button aria-label="Sair" size="icon" title="Sair" type="button" variant="ghost" onClick={onLogout}>
               <LogOut size={17} />
             </Button>
           </div>
         </div>
       </header>
 
-      <Routes>
-        <Route element={<FinanceDashboard />} path="/financas" />
-        <Route element={<TasksApp />} path="/taskly" />
-        <Route element={<Navigate replace to="/financas" />} path="*" />
-      </Routes>
+      <Suspense fallback={<LoadingLabel />}>
+        <Outlet />
+      </Suspense>
     </main>
   );
 }

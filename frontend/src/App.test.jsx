@@ -117,8 +117,26 @@ afterEach(() => {
 });
 
 describe("NexaFlow", () => {
+  it("exibe a landing page na raiz e leva ao login", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    expect(
+      screen.getByRole("heading", { name: "Suas finanças e tarefas em um painel único." }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Dashboard financeiro" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Taskly" })).toBeInTheDocument();
+    expect(screen.getByRole("contentinfo")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Criar conta gratuita" }));
+
+    expect(window.location.pathname).toBe("/login");
+    expect(screen.getByRole("heading", { name: "Entre no NexaFlow" })).toBeInTheDocument();
+  });
+
   it("exibe login e permite abrir o cadastro", async () => {
     const user = userEvent.setup();
+    window.history.pushState({}, "", "/login");
     render(<App />);
 
     expect(screen.getByRole("img", { name: "Logo NexaFlow" })).toHaveAttribute(
@@ -134,12 +152,13 @@ describe("NexaFlow", () => {
 
   it("entra com a conta demonstrativa", async () => {
     const user = userEvent.setup();
+    window.history.pushState({}, "", "/login");
     render(<App />);
 
     await user.click(screen.getByRole("button", { name: "Usar conta demonstrativa" }));
 
     expect(await screen.findByText("Usuário Demo")).toBeInTheDocument();
-    expect(await screen.findByText("Mercado")).toBeInTheDocument();
+    expect(await screen.findByText("Mercado", {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /Nexa Score/ })).toBeInTheDocument();
     expect(localStorage.getItem("nexaflow-token")).toBe("demo-local-token");
     expect(localStorage.getItem("nexaflow-demo-mode")).toBe("true");
@@ -148,6 +167,7 @@ describe("NexaFlow", () => {
 
   it("envia somente email e senha no login", async () => {
     const user = userEvent.setup();
+    window.history.pushState({}, "", "/login");
     render(<App />);
 
     await user.type(screen.getByPlaceholderText("seuemail@exemplo.com"), "heitor@example.com");
@@ -167,6 +187,7 @@ describe("NexaFlow", () => {
 
   it("valida email e senha antes de tentar entrar", async () => {
     const user = userEvent.setup();
+    window.history.pushState({}, "", "/login");
     render(<App />);
 
     await user.click(screen.getByRole("button", { name: "Entrar" }));
