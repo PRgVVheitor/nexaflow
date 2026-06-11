@@ -220,6 +220,29 @@ describe("NexaFlow API", () => {
     expect(removed.status).toBe(204);
   });
 
+  it("cria, atualiza, lista e remove uma meta de gastos", async () => {
+    const created = await authenticated("post", "/api/goals").send({
+      category: "Lazer",
+      monthlyLimit: 400,
+    });
+
+    expect(created.status).toBe(201);
+    expect(created.body).toMatchObject({ category: "Lazer", monthlyLimit: 400 });
+
+    const updated = await authenticated("post", "/api/goals").send({
+      category: "Lazer",
+      monthlyLimit: 650.5,
+    });
+    expect(updated.status).toBe(201);
+    expect(updated.body.id).toBe(created.body.id);
+    expect(updated.body.monthlyLimit).toBe(650.5);
+
+    const listed = await authenticated("get", "/api/goals");
+    expect(listed.body.some((goal: { id: string }) => goal.id === created.body.id)).toBe(true);
+
+    const removed = await authenticated("delete", `/api/goals/${created.body.id}`);
+    expect(removed.status).toBe(204);
+  });
   it("rejeita prazo invalido ao criar uma tarefa", async () => {
     const response = await authenticated("post", "/api/tasks").send({
       title: `${testPrefix}-invalid-date`,

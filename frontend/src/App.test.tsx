@@ -88,6 +88,7 @@ const responses: Record<string, unknown> = {
   "/api/transactions": defaultTransactions,
   "/api/finance/intelligence": defaultIntelligence,
   "/api/tasks": defaultTasks,
+  "/api/goals": [{ id: "goal-test", category: "Alimentacao", monthlyLimit: 800 }],
 };
 
 beforeAll(async () => {
@@ -101,6 +102,7 @@ beforeEach(() => {
   responses["/api/transactions"] = defaultTransactions;
   responses["/api/finance/intelligence"] = defaultIntelligence;
   responses["/api/tasks"] = defaultTasks;
+  responses["/api/goals"] = [{ id: "goal-test", category: "Alimentacao", monthlyLimit: 800 }];
   delete responses["/api/transactions/tx-test"];
   delete responses["/api/tasks/task-test"];
   URL.createObjectURL = vi.fn(() => "blob:nexaflow-test");
@@ -220,6 +222,17 @@ describe("NexaFlow", () => {
       "http://127.0.0.1:3001/api/transactions",
       expect.any(Object),
     );
+  });
+
+  it("exibe as metas de gastos com progresso do mês", async () => {
+    localStorage.setItem("nexaflow-token", "token-test");
+    render(<App />);
+
+    expect(await screen.findByText("Metas de gastos")).toBeInTheDocument();
+    expect(await screen.findByText(/R\$\s*0,00 de R\$\s*800,00/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("progressbar", { name: /meta de Alimentação/ }),
+    ).toBeInTheDocument();
   });
 
   it("permite comparar dois meses no painel financeiro", async () => {

@@ -62,6 +62,13 @@ export const transactionUpdateSchema = transactionSchema
   .partial()
   .refine((data) => Object.keys(data).length > 0, "Informe ao menos um campo para atualizar.");
 
+export const goalSchema = z
+  .object({
+    category: transactionCategory,
+    monthlyLimit: z.coerce.number().finite().positive().max(9999999999.99),
+  })
+  .strict();
+
 export const taskSchema = z
   .object({
     dueDate: dateOnly.nullable().optional().default(null),

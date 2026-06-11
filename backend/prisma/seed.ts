@@ -53,6 +53,12 @@ const transactions = [
   },
 ];
 
+const goals = [
+  { id: "goal-1", category: "Alimentacao", monthlyLimit: 800 },
+  { id: "goal-2", category: "Moradia", monthlyLimit: 1500 },
+  { id: "goal-3", category: "Lazer", monthlyLimit: 400 },
+];
+
 const tasks = [
   {
     id: "task-1",
@@ -99,6 +105,13 @@ async function main() {
         where: { id: transaction.id },
         update: { ...transaction, userId: demoUser.id },
         create: { ...transaction, userId: demoUser.id },
+      }),
+    ),
+    ...goals.map((goal) =>
+      prisma.goal.upsert({
+        where: { id: goal.id },
+        update: { ...goal, userId: demoUser.id },
+        create: { ...goal, userId: demoUser.id },
       }),
     ),
     ...tasks.map((task) =>

@@ -1,14 +1,15 @@
-import type { ApiUser, Intelligence, Task, Transaction } from "./lib/types";
+import type { ApiUser, Goal, Intelligence, Task, Transaction } from "./lib/types";
 
 export const demoModeKey = "nexaflow-demo-mode";
 export const demoStoreKey = "nexaflow-demo-store";
 export const demoToken = "demo-local-token";
-const demoVersion = "3";
+const demoVersion = "4";
 const demoVersionKey = "nexaflow-demo-version";
 
 interface DemoStore {
   transactions: Transaction[];
   tasks: Task[];
+  goals: Goal[];
 }
 
 const demoUser: ApiUser = {
@@ -129,6 +130,11 @@ function createDemoStore(): DemoStore {
       ...transaction,
       date: transaction.createdAt.slice(0, 10),
     })),
+    goals: [
+      { id: "demo-goal-1", category: "Alimentacao", monthlyLimit: 800 },
+      { id: "demo-goal-2", category: "Moradia", monthlyLimit: 1500 },
+      { id: "demo-goal-3", category: "Lazer", monthlyLimit: 400 },
+    ],
     tasks: [
       {
         id: "demo-task-1",
@@ -264,6 +270,31 @@ export function demoApi(path: string, options: RequestInit = {}): unknown {
   if (path === "/api/transactions" && method === "GET") return store.transactions;
   if (path === "/api/finance/intelligence") return buildDemoIntelligence(store.transactions);
   if (path === "/api/tasks" && method === "GET") return store.tasks;
+  if (path === "/api/goals" && method === "GET") return store.goals;
+
+  if (path === "/api/goals" && method === "POST") {
+    const category = String(body.category);
+    const monthlyLimit = Number(body.monthlyLimit);
+    const existing = store.goals.find((goal) => goal.category === category);
+    if (existing) {
+      existing.monthlyLimit = monthlyLimit;
+      writeDemoStore(store);
+      return existing;
+    }
+    const goal: Goal = { id: `demo-goal-${Date.now()}`, category, monthlyLimit };
+    store.goals.push(goal);
+    writeDemoStore(store);
+    return goal;
+  }
+
+  const goalMatch = path.match(/^\/api\/goals\/(.+)$/);
+  if (goalMatch && method === "DELETE") {
+    const index = store.goals.findIndex((goal) => goal.id === goalMatch[1]);
+    if (index < 0) throw new Error("Meta demonstrativa não encontrada.");
+    store.goals.splice(index, 1);
+    writeDemoStore(store);
+    return null;
+  }
 
   if (path === "/api/transactions" && method === "POST") {
     const transaction = {

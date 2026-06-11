@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import type { Task, Transaction } from "@prisma/client";
+import type { Goal, Task, Transaction } from "@prisma/client";
 import cors from "cors";
 import express from "express";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
@@ -17,6 +17,7 @@ import { prisma } from "./db.js";
 import { env } from "./env.js";
 import { buildFinancialIntelligence } from "./finance-intelligence.js";
 import {
+  goalSchema,
   loginSchema,
   registerSchema,
   taskSchema,
@@ -65,6 +66,10 @@ function serializeTransaction(transaction: Transaction) {
     amount: Number(transaction.amount),
     date: transaction.date.toISOString().slice(0, 10),
   };
+}
+
+function serializeGoal(goal: Goal) {
+  return { ...goal, monthlyLimit: Number(goal.monthlyLimit) };
 }
 
 function serializeTask(task: Task) {
@@ -218,6 +223,50 @@ app.delete(
 
     if (!result.count) {
       res.status(404).json({ message: "Transacao nao encontrada." });
+      return;
+    }
+
+    res.status(204).end();
+  }),
+);
+
+app.get(
+  "/api/goals",
+  requireAuth,
+  asyncRoute(async (req, res) => {
+    const goals = await prisma.goal.findMany({
+      where: { userId: authUserId(req) },
+      orderBy: { category: "asc" },
+    });
+    res.json(goals.map(serializeGoal));
+  }),
+);
+
+app.post(
+  "/api/goals",
+  requireAuth,
+  validateBody(goalSchema),
+  asyncRoute(async (req, res) => {
+    const { category, monthlyLimit } = validated(req, goalSchema);
+    const goal = await prisma.goal.upsert({
+      where: { userId_category: { userId: authUserId(req), category } },
+      update: { monthlyLimit },
+      create: { category, monthlyLimit, userId: authUserId(req) },
+    });
+    res.status(201).json(serializeGoal(goal));
+  }),
+);
+
+app.delete(
+  "/api/goals/:id",
+  requireAuth,
+  asyncRoute(async (req, res) => {
+    const result = await prisma.goal.deleteMany({
+      where: { id: req.params.id, userId: authUserId(req) },
+    });
+
+    if (!result.count) {
+      res.status(404).json({ message: "Meta nao encontrada." });
       return;
     }
 

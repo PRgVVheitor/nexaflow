@@ -15,6 +15,7 @@ model User {
   createdAt    DateTime      @default(now())
   transactions Transaction[]
   tasks        Task[]
+  goals        Goal[]
 }
 
 model Transaction {
@@ -31,6 +32,17 @@ model Transaction {
   @@index([createdAt])
   @@index([userId, createdAt])
   @@index([userId, date])
+}
+
+model Goal {
+  id           String   @id @default(cuid())
+  category     String
+  monthlyLimit Decimal  @db.Decimal(12, 2)
+  createdAt    DateTime @default(now())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, category])
 }
 
 model Task {

@@ -27,6 +27,12 @@ export interface Task {
   createdAt?: string;
 }
 
+export interface Goal {
+  id: string;
+  category: string;
+  monthlyLimit: number;
+}
+
 export type InsightType = "info" | "success" | "warning";
 
 export interface Insight {

@@ -41,6 +41,7 @@ import { DatePicker } from "../components/DatePicker";
 import { EmptyState } from "../components/EmptyState";
 import { FinancialCopilot } from "../components/FinancialCopilot";
 import { FinancialIntelligencePanel } from "../components/FinancialIntelligencePanel";
+import { GoalsPanel } from "../components/GoalsPanel";
 import { MetricCard } from "../components/MetricCard";
 import { PageHeading } from "../components/PageHeading";
 import { ChartSkeleton, MetricSkeleton, TableSkeleton } from "../components/skeletons";
@@ -82,7 +83,7 @@ import {
   shortMonth,
 } from "../lib/format";
 import { transactionFormSchema, type TransactionFormValues } from "../lib/schemas";
-import type { Intelligence, Totals, Transaction, TransactionType } from "../lib/types";
+import type { Goal, Intelligence, Totals, Transaction, TransactionType } from "../lib/types";
 import { cn } from "../lib/utils";
 
 interface MonthSummary {
@@ -130,6 +131,7 @@ function monthCumulativeByDay(transactions: Transaction[], key: string): number[
 export function FinanceDashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [intelligence, setIntelligence] = useState<Intelligence | null>(null);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [intelligenceLoading, setIntelligenceLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -150,14 +152,18 @@ export function FinanceDashboard() {
     setIntelligenceLoading(true);
     setError("");
     try {
-      const [transactionsResult, intelligenceResult] = await Promise.allSettled([
+      const [transactionsResult, intelligenceResult, goalsResult] = await Promise.allSettled([
         api<Transaction[]>("/api/transactions"),
         api<Intelligence>("/api/finance/intelligence"),
+        api<Goal[]>("/api/goals"),
       ]);
       if (transactionsResult.status === "rejected") throw transactionsResult.reason;
       setTransactions(transactionsResult.value);
       if (intelligenceResult.status === "fulfilled") {
         setIntelligence(intelligenceResult.value);
+      }
+      if (goalsResult.status === "fulfilled") {
+        setGoals(goalsResult.value);
       }
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Erro na API.");
@@ -333,7 +339,46 @@ export function FinanceDashboard() {
     return `${capitalize(bestMonth.fullLabel)} ${highlight}: ${currency.format(bestMonth.current)} (${comparisonText}).`;
   }, [waveData, waveMetric]);
 
+  const currentMonth = monthKey(new Date());
+  const spentByCategory = useMemo(() => {
+    return transactions.reduce<Record<string, number>>((totals, transaction) => {
+      if (transaction.type !== "expense") return totals;
+      if (monthKey(transactionDay(transaction)) !== currentMonth) return totals;
+      totals[transaction.category] = (totals[transaction.category] || 0) + transaction.amount;
+      return totals;
+    }, {});
+  }, [transactions, currentMonth]);
+
+  async function saveGoal(category: string, monthlyLimit: number) {
+    try {
+      const saved = await api<Goal>("/api/goals", {
+        method: "POST",
+        body: JSON.stringify({ category, monthlyLimit }),
+      });
+      setGoals((current) => {
+        const others = current.filter((goal) => goal.category !== saved.category);
+        return [...others, saved].sort((a, b) => a.category.localeCompare(b.category));
+      });
+      toast.success("Meta salva.");
+      return true;
+    } catch (requestError) {
+      toast.error(requestError instanceof Error ? requestError.message : "Erro na API.");
+      return false;
+    }
+  }
+
+  async function deleteGoal(id: string) {
+    try {
+      await api(`/api/goals/${id}`, { method: "DELETE" });
+      setGoals((current) => current.filter((goal) => goal.id !== id));
+      toast.success("Meta removida.");
+    } catch (requestError) {
+      toast.error(requestError instanceof Error ? requestError.message : "Erro na API.");
+    }
+  }
+
   async function createTransaction(data: TransactionFormValues) {
+
     try {
       const created = await api<Transaction>("/api/transactions", {
         method: "POST",
@@ -515,6 +560,14 @@ export function FinanceDashboard() {
       </div>
 
       <FinancialIntelligencePanel intelligence={intelligence} loading={intelligenceLoading} />
+
+      <GoalsPanel
+        goals={goals}
+        loading={loading}
+        spentByCategory={spentByCategory}
+        onDelete={deleteGoal}
+        onSave={saveGoal}
+      />
 
       <div className="grid gap-4 xl:grid-cols-2">
         <ChartCard
