@@ -3,10 +3,46 @@
 :root {
   color-scheme: dark;
   font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
-  background: #09090b;
-  color: #f4f4f5;
+  background: var(--app-background, #09090b);
+  color: var(--app-foreground, #f4f4f5);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+}
+
+/*
+ * Tema claro: as utilities do Tailwind 4 resolvem cores via
+ * var(--color-*), então remapear a escala zinc (e os tons de acento
+ * usados sobre fundo escuro) dentro de .light reestiliza o app inteiro
+ * sem tocar nos componentes.
+ */
+:root.light {
+  color-scheme: light;
+  --app-background: #fafafa;
+  --app-foreground: #18181b;
+
+  --color-zinc-950: #fafafa;
+  --color-zinc-900: #ffffff;
+  --color-zinc-800: #e4e4e7;
+  --color-zinc-700: #d4d4d8;
+  --color-zinc-500: #52525b;
+  --color-zinc-400: #52525b;
+  --color-zinc-300: #3f3f46;
+  --color-zinc-200: #27272a;
+  --color-zinc-100: #18181b;
+  --color-zinc-50: #09090b;
+
+  --color-emerald-300: oklch(0.508 0.118 165.612);
+  --color-emerald-400: oklch(0.596 0.145 163.225);
+  --color-sky-300: oklch(0.5 0.134 242.749);
+  --color-rose-300: oklch(0.514 0.222 16.935);
+  --color-red-300: oklch(0.505 0.213 27.518);
+  --color-amber-300: oklch(0.555 0.163 58.108);
+}
+
+:root.light body {
+  background:
+    linear-gradient(rgba(16, 185, 129, 0.05), transparent 28rem),
+    #fafafa;
 }
 
 * {
@@ -53,9 +89,19 @@ button {
   background: #18181b !important;
 }
 
+:root.light .recharts-default-tooltip {
+  border-color: #d4d4d8 !important;
+  background: #ffffff !important;
+}
+
 .recharts-tooltip-item,
 .recharts-tooltip-label {
   color: #e4e4e7 !important;
+}
+
+:root.light .recharts-tooltip-item,
+:root.light .recharts-tooltip-label {
+  color: #27272a !important;
 }
 
 .nexaflow-toast {
@@ -63,4 +109,10 @@ button {
   background: #18181b !important;
   color: #f4f4f5 !important;
   font-size: 14px !important;
+}
+
+:root.light .nexaflow-toast {
+  border-color: #d4d4d8 !important;
+  background: #ffffff !important;
+  color: #18181b !important;
 }

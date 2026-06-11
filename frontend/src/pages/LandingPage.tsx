@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { BrandMark } from "../components/BrandMark";
+import { ThemeToggle } from "../components/ThemeToggle";
 import { Button } from "../components/ui";
 
 const features = [
@@ -46,10 +47,13 @@ export function LandingPage() {
           <BrandMark />
           <p className="text-lg font-bold text-zinc-50">NexaFlow</p>
         </div>
-        <Button type="button" variant="secondary" onClick={() => navigate("/login")}>
-          Entrar
-          <ArrowRight size={16} />
-        </Button>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <Button type="button" variant="secondary" onClick={() => navigate("/login")}>
+            Entrar
+            <ArrowRight size={16} />
+          </Button>
+        </div>
       </header>
 
       <main>

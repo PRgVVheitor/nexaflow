@@ -12,6 +12,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { BrandMark } from "./components/BrandMark";
+import { ThemeToggle } from "./components/ThemeToggle";
 import { LoadingLabel } from "./components/skeletons";
 import { Badge, Button } from "./components/ui";
 import { api, tokenKey } from "./lib/api";
@@ -167,9 +168,12 @@ function AppLayout({ isDemoMode, onLogout, user }: AppLayoutProps) {
               </div>
               <p className="truncate text-xs text-zinc-400">{user.email}</p>
             </div>
-            <Button aria-label="Sair" size="icon" title="Sair" type="button" variant="ghost" onClick={onLogout}>
-              <LogOut size={17} />
-            </Button>
+            <div className="flex items-center gap-1">
+              <ThemeToggle />
+              <Button aria-label="Sair" size="icon" title="Sair" type="button" variant="ghost" onClick={onLogout}>
+                <LogOut size={17} />
+              </Button>
+            </div>
           </div>
         </div>
       </header>
