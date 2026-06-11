@@ -118,10 +118,16 @@ describe("NexaFlow API", () => {
       category: "Outros",
       type: "income",
       amount: 42.5,
+      date: "2026-06-01",
     });
 
     expect(created.status).toBe(201);
-    expect(created.body).toMatchObject({ description, amount: 42.5, type: "income" });
+    expect(created.body).toMatchObject({
+      description,
+      amount: 42.5,
+      type: "income",
+      date: "2026-06-01",
+    });
 
     const listed = await authenticated("get", "/api/transactions");
     expect(listed.body.some((transaction) => transaction.id === created.body.id)).toBe(true);
@@ -131,6 +137,7 @@ describe("NexaFlow API", () => {
       category: "Freelance",
       type: "income",
       amount: 75.25,
+      date: "2026-06-04",
     });
     expect(edited.status).toBe(200);
     expect(edited.body).toMatchObject({
@@ -138,10 +145,25 @@ describe("NexaFlow API", () => {
       category: "Freelance",
       type: "income",
       amount: 75.25,
+      date: "2026-06-04",
     });
 
     const removed = await authenticated("delete", `/api/transactions/${created.body.id}`);
     expect(removed.status).toBe(204);
+  });
+
+  it("usa a data atual quando a transacao nao informa data", async () => {
+    const created = await authenticated("post", "/api/transactions").send({
+      description: `${testPrefix}-sem-data`,
+      category: "Outros",
+      type: "expense",
+      amount: 10,
+    });
+
+    expect(created.status).toBe(201);
+    expect(created.body.date).toBe(new Date().toISOString().slice(0, 10));
+
+    await authenticated("delete", `/api/transactions/${created.body.id}`);
   });
 
   it("gera score, previsoes e insights financeiros", async () => {

@@ -30,10 +30,14 @@ export function formatMonth(key, formatter) {
   return formatter.format(new Date(year, month - 1, 1)).replace(".", "");
 }
 
+export function transactionDay(transaction) {
+  return parseISO(transaction.date || transaction.createdAt);
+}
+
 export function transactionMatchesPeriod(transaction, filter, customPeriod) {
   if (filter === "all") return true;
 
-  const transactionDate = new Date(transaction.createdAt);
+  const transactionDate = transactionDay(transaction);
   if (Number.isNaN(transactionDate.getTime())) return false;
 
   const today = new Date();

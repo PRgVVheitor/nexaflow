@@ -23,12 +23,14 @@ model Transaction {
   category    String
   type        String
   amount      Decimal  @db.Decimal(12, 2)
+  date        DateTime @default(now()) @db.Date
   createdAt   DateTime @default(now())
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([createdAt])
   @@index([userId, createdAt])
+  @@index([userId, date])
 }
 
 model Task {

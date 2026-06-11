@@ -51,6 +51,7 @@ export const transactionSchema = z
   .object({
     amount: z.coerce.number().finite().positive().max(9999999999.99),
     category: transactionCategory,
+    date: dateOnly.optional(),
     description: trimmedText(1, 120),
     type: z.enum(["income", "expense"]),
   })

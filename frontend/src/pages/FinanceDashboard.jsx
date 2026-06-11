@@ -63,7 +63,13 @@ import {
 } from "../components/ui";
 import { api } from "../lib/api";
 import { chartColors, transactionCategories, waveMetrics } from "../lib/constants";
-import { formatMonth, monthKey, shiftMonth, transactionMatchesPeriod } from "../lib/dates";
+import {
+  formatMonth,
+  monthKey,
+  shiftMonth,
+  transactionDay,
+  transactionMatchesPeriod,
+} from "../lib/dates";
 import {
   capitalize,
   compactCurrency,
@@ -193,7 +199,7 @@ export function FinanceDashboard() {
     );
 
     filteredTransactions.forEach((item) => {
-      const key = monthKey(item.createdAt ? new Date(item.createdAt) : new Date());
+      const key = monthKey(transactionDay(item));
       if (!grouped[key]) return;
       grouped[key][item.type === "income" ? "income" : "expense"] += item.amount;
     });
@@ -311,6 +317,7 @@ export function FinanceDashboard() {
       id: transaction.id,
       description: transaction.description,
       category: transaction.category,
+      date: transaction.date,
       type: transaction.type,
       amount: String(transaction.amount),
     });
@@ -320,6 +327,7 @@ export function FinanceDashboard() {
     const result = transactionFormSchema.safeParse({
       amount: editingTransaction.amount,
       category: editingTransaction.category,
+      date: editingTransaction.date,
       description: editingTransaction.description,
       type: editingTransaction.type,
     });
@@ -346,7 +354,7 @@ export function FinanceDashboard() {
 
   function exportTransactions() {
     const rows = filteredTransactions.map((transaction) => [
-      format(new Date(transaction.createdAt), "dd/MM/yyyy HH:mm"),
+      format(transactionDay(transaction), "dd/MM/yyyy"),
       transaction.description,
       displayCategory(transaction.category),
       transaction.type === "income" ? "Entrada" : "Saída",
@@ -813,6 +821,7 @@ export function FinanceDashboard() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Data</TableHead>
                     <TableHead>Descrição</TableHead>
                     <TableHead>Categoria</TableHead>
                     <TableHead>Tipo</TableHead>
@@ -825,6 +834,20 @@ export function FinanceDashboard() {
                     <TableRow key={transaction.id}>
                       {editingTransaction?.id === transaction.id ? (
                         <>
+                          <TableCell>
+                            <Input
+                              aria-label="Editar data da transação"
+                              className="min-w-36"
+                              type="date"
+                              value={editingTransaction.date}
+                              onChange={(event) =>
+                                setEditingTransaction((current) => ({
+                                  ...current,
+                                  date: event.target.value,
+                                }))
+                              }
+                            />
+                          </TableCell>
                           <TableCell>
                             <Input
                               aria-label="Editar descrição da transação"
@@ -913,6 +936,9 @@ export function FinanceDashboard() {
                         </>
                       ) : (
                         <>
+                          <TableCell className="whitespace-nowrap text-zinc-400">
+                            {format(transactionDay(transaction), "dd/MM/yyyy")}
+                          </TableCell>
                           <TableCell className="font-medium text-zinc-100">
                             {transaction.description}
                           </TableCell>

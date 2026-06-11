@@ -60,7 +60,7 @@ function findAnomalies(expenses, now) {
   const categoryTotals = new Map();
 
   for (const expense of expenses) {
-    const date = new Date(expense.createdAt);
+    const date = expense.date;
     if (date < previousWindowStart) continue;
     const totals = categoryTotals.get(expense.category) || { current: 0, previous: 0 };
     if (date >= currentWeekStart) totals.current += Number(expense.amount);
@@ -93,19 +93,19 @@ export function buildFinancialIntelligence(transactions, now = new Date()) {
   const normalized = transactions.map((transaction) => ({
     ...transaction,
     amount: Number(transaction.amount),
-    createdAt: new Date(transaction.createdAt),
+    date: new Date(transaction.date ?? transaction.createdAt),
   }));
   const income = totalByType(normalized, "income");
   const expense = totalByType(normalized, "expense");
   const currentBalance = income - expense;
   const recentStart = new Date(now.getTime() - 30 * dayMs);
-  const recent = normalized.filter((transaction) => transaction.createdAt >= recentStart);
+  const recent = normalized.filter((transaction) => transaction.date >= recentStart);
   const recentIncome = totalByType(recent, "income");
   const recentExpense = totalByType(recent, "expense");
   const recentNet = recentIncome - recentExpense;
   const earliestRecent = recent.reduce(
     (earliest, transaction) =>
-      !earliest || transaction.createdAt < earliest ? transaction.createdAt : earliest,
+      !earliest || transaction.date < earliest ? transaction.date : earliest,
     null,
   );
   const observedDays = earliestRecent
@@ -128,7 +128,7 @@ export function buildFinancialIntelligence(transactions, now = new Date()) {
     const start = startOfMonth(now, offset);
     const end = startOfMonth(now, offset + 1);
     const month = normalized.filter(
-      (transaction) => transaction.createdAt >= start && transaction.createdAt < end,
+      (transaction) => transaction.date >= start && transaction.date < end,
     );
     return totalByType(month, "income") - totalByType(month, "expense");
   });

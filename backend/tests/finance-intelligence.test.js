@@ -7,7 +7,7 @@ function transaction(daysAgo, type, amount, category = "Outros") {
   return {
     amount,
     category,
-    createdAt: new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000),
+    date: new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000),
     type,
   };
 }

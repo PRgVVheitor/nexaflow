@@ -5,6 +5,7 @@ export const transactionFormSchema = z.object({
     .number({ error: "Informe um valor." })
     .positive("O valor deve ser maior que zero."),
   category: z.string().min(1, "Selecione uma categoria."),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Selecione a data do lançamento."),
   description: z.string().trim().min(2, "Informe uma descrição com pelo menos 2 caracteres."),
   type: z.enum(["income", "expense"]),
 });

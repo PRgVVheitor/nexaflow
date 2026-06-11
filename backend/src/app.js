@@ -50,7 +50,15 @@ function asyncRoute(handler) {
 }
 
 function serializeTransaction(transaction) {
-  return { ...transaction, amount: Number(transaction.amount) };
+  return {
+    ...transaction,
+    amount: Number(transaction.amount),
+    date: transaction.date.toISOString().slice(0, 10),
+  };
+}
+
+function parseDateOnly(value) {
+  return new Date(`${value}T00:00:00.000Z`);
 }
 
 function serializeTask(task) {
@@ -124,7 +132,7 @@ app.get(
   asyncRoute(async (req, res) => {
     const transactions = await prisma.transaction.findMany({
       where: { userId: req.auth.userId },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     });
     res.json(transactions.map(serializeTransaction));
   }),
@@ -136,7 +144,7 @@ app.get(
   asyncRoute(async (req, res) => {
     const transactions = await prisma.transaction.findMany({
       where: { userId: req.auth.userId },
-      orderBy: { createdAt: "asc" },
+      orderBy: [{ date: "asc" }, { createdAt: "asc" }],
     });
     res.json(buildFinancialIntelligence(transactions));
   }),
@@ -147,9 +155,16 @@ app.post(
   requireAuth,
   validateBody(transactionSchema),
   asyncRoute(async (req, res) => {
-    const { amount, category, description, type } = req.validatedBody;
+    const { amount, category, date, description, type } = req.validatedBody;
     const transaction = await prisma.transaction.create({
-      data: { description, category, type, amount, userId: req.auth.userId },
+      data: {
+        description,
+        category,
+        type,
+        amount,
+        ...(date ? { date: parseDateOnly(date) } : {}),
+        userId: req.auth.userId,
+      },
     });
     res.status(201).json(serializeTransaction(transaction));
   }),
@@ -160,8 +175,11 @@ app.patch(
   requireAuth,
   validateBody(transactionUpdateSchema),
   asyncRoute(async (req, res) => {
+    const data = { ...req.validatedBody };
+    if (data.date) data.date = parseDateOnly(data.date);
+
     const result = await prisma.transaction.updateMany({
-      data: req.validatedBody,
+      data,
       where: { id: req.params.id, userId: req.auth.userId },
     });
 
@@ -214,7 +232,7 @@ app.post(
       data: {
         title,
         priority,
-        dueDate: dueDate ? new Date(`${dueDate}T00:00:00.000Z`) : null,
+        dueDate: dueDate ? parseDateOnly(dueDate) : null,
         userId: req.auth.userId,
       },
     });
@@ -229,7 +247,7 @@ app.patch(
   asyncRoute(async (req, res) => {
     const data = { ...req.validatedBody };
     if ("dueDate" in data) {
-      data.dueDate = data.dueDate ? new Date(`${data.dueDate}T00:00:00.000Z`) : null;
+      data.dueDate = data.dueDate ? parseDateOnly(data.dueDate) : null;
     }
 
     const result = await prisma.task.updateMany({

@@ -1,7 +1,7 @@
 export const demoModeKey = "nexaflow-demo-mode";
 export const demoStoreKey = "nexaflow-demo-store";
 export const demoToken = "demo-local-token";
-const demoVersion = "2";
+const demoVersion = "3";
 const demoVersionKey = "nexaflow-demo-version";
 
 const demoUser = {
@@ -115,7 +115,10 @@ function createDemoStore() {
         createdAt: transactionDate(12),
       },
       ...historicalTransactions,
-    ],
+    ].map((transaction) => ({
+      ...transaction,
+      date: transaction.createdAt.slice(0, 10),
+    })),
     tasks: [
       {
         id: "demo-task-1",
@@ -255,6 +258,7 @@ export function demoApi(path, options = {}) {
     const transaction = {
       ...body,
       id: `demo-tx-${Date.now()}`,
+      date: body.date || new Date().toISOString().slice(0, 10),
       createdAt: new Date().toISOString(),
     };
     store.transactions.unshift(transaction);

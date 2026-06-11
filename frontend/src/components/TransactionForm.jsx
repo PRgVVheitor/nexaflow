@@ -1,15 +1,22 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { format } from "date-fns";
 import { ArrowDownRight, ArrowUpRight, Loader2, Plus } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { transactionCategories } from "../lib/constants";
 import { displayCategory } from "../lib/format";
 import { transactionFormSchema } from "../lib/schemas";
 import { cn } from "../lib/utils";
+import { DatePicker } from "./DatePicker";
 import { FieldError } from "./FieldError";
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Select } from "./ui";
 
+function today() {
+  return format(new Date(), "yyyy-MM-dd");
+}
+
 export function TransactionForm({ onCreate }) {
   const {
+    control,
     formState: { errors, isSubmitting },
     handleSubmit,
     register,
@@ -17,7 +24,7 @@ export function TransactionForm({ onCreate }) {
     setValue,
     watch,
   } = useForm({
-    defaultValues: { amount: "", category: "", description: "", type: "expense" },
+    defaultValues: { amount: "", category: "", date: today(), description: "", type: "expense" },
     resolver: zodResolver(transactionFormSchema),
   });
   const type = watch("type");
@@ -31,7 +38,7 @@ export function TransactionForm({ onCreate }) {
 
   async function submit(data) {
     if (await onCreate(data)) {
-      reset({ amount: "", category: "", description: "", type: data.type });
+      reset({ amount: "", category: "", date: data.date, description: "", type: data.type });
     }
   }
 
@@ -78,6 +85,21 @@ export function TransactionForm({ onCreate }) {
             {...register("amount")}
           />
           <FieldError error={errors.amount} />
+          <label className="grid gap-1.5 text-xs font-medium text-zinc-400">
+            Data do lançamento
+            <Controller
+              control={control}
+              name="date"
+              render={({ field }) => (
+                <DatePicker
+                  label="Data da transação"
+                  value={field.value}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+          </label>
+          <FieldError error={errors.date} />
           <div
             aria-label="Tipo da transação"
             className="grid grid-cols-2 rounded-lg border border-zinc-800 bg-zinc-950/60 p-1"

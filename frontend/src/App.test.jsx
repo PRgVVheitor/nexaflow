@@ -17,6 +17,7 @@ const defaultTransactions = [
     category: "Renda",
     type: "income",
     amount: 5000,
+    date: "2026-06-03",
     createdAt: "2026-06-03T12:00:00.000Z",
   },
   {
@@ -25,6 +26,7 @@ const defaultTransactions = [
     category: "Moradia",
     type: "expense",
     amount: 1200,
+    date: "2026-05-03",
     createdAt: "2026-05-03T12:00:00.000Z",
   },
 ];
@@ -333,6 +335,7 @@ describe("NexaFlow", () => {
         body: JSON.stringify({
           amount: 6100,
           category: "Freelance",
+          date: "2026-06-03",
           description: "Salario atualizado",
           type: "income",
         }),

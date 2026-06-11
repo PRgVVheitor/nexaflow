@@ -1,9 +1,9 @@
-import { PrismaClient } from "@prisma/client";
+﻿import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-function dueDateOffset(days) {
+function dayOffset(days) {
   const date = new Date();
   date.setUTCHours(0, 0, 0, 0);
   date.setUTCDate(date.getUTCDate() + days);
@@ -11,21 +11,37 @@ function dueDateOffset(days) {
 }
 
 const transactions = [
-  { id: "tx-1", description: "Salario", category: "Renda", type: "income", amount: 3200 },
+  {
+    id: "tx-1",
+    description: "Salario",
+    category: "Renda",
+    type: "income",
+    amount: 3200,
+    date: dayOffset(-5),
+  },
   {
     id: "tx-2",
     description: "Freelance landing page",
     category: "Renda",
     type: "income",
     amount: 850,
+    date: dayOffset(-8),
   },
-  { id: "tx-3", description: "Aluguel", category: "Moradia", type: "expense", amount: 1100 },
+  {
+    id: "tx-3",
+    description: "Aluguel",
+    category: "Moradia",
+    type: "expense",
+    amount: 1100,
+    date: dayOffset(-3),
+  },
   {
     id: "tx-4",
     description: "Mercado",
     category: "Alimentacao",
     type: "expense",
     amount: 540,
+    date: dayOffset(-2),
   },
   {
     id: "tx-5",
@@ -33,6 +49,7 @@ const transactions = [
     category: "Servicos",
     type: "expense",
     amount: 120,
+    date: dayOffset(-12),
   },
 ];
 
@@ -42,21 +59,21 @@ const tasks = [
     title: "Criar README do projeto",
     priority: "alta",
     done: false,
-    dueDate: dueDateOffset(-1),
+    dueDate: dayOffset(-1),
   },
   {
     id: "task-2",
     title: "Publicar no GitHub",
     priority: "media",
     done: false,
-    dueDate: dueDateOffset(0),
+    dueDate: dayOffset(0),
   },
   {
     id: "task-3",
     title: "Revisar responsividade",
     priority: "baixa",
     done: true,
-    dueDate: dueDateOffset(3),
+    dueDate: dayOffset(3),
   },
 ];
 
