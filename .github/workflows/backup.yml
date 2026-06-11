@@ -8,18 +8,19 @@ on:
 jobs:
   backup:
     runs-on: ubuntu-latest
+    env:
+      PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
     steps:
-      - name: Validate secret
-        run: test -n "$PROD_DATABASE_URL"
-        env:
-          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+      - name: Explain inactive backup
+        if: env.PROD_DATABASE_URL == ''
+        run: echo "::notice::Adicione PROD_DATABASE_URL aos Actions Secrets para ativar o backup diario."
 
       - name: Create compressed backup
+        if: env.PROD_DATABASE_URL != ''
         run: pg_dump "$PROD_DATABASE_URL" --format=custom --no-owner --file=nexaflow.dump
-        env:
-          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
 
       - name: Upload encrypted-at-rest workflow artifact
+        if: env.PROD_DATABASE_URL != ''
         uses: actions/upload-artifact@v4
         with:
           name: nexaflow-postgres-${{ github.run_id }}
