@@ -4,6 +4,8 @@ import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { env } from "./env.js";
 
+export const sessionCookie = "nexaflow_session";
+
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
@@ -19,6 +21,7 @@ export function publicUser(user: User) {
     id: user.id,
     name: user.name,
     email: user.email,
+    emailVerified: Boolean(user.emailVerifiedAt),
   };
 }
 
@@ -34,9 +37,27 @@ export async function verifyPassword(password: string, passwordHash: string) {
   return bcrypt.compare(password, passwordHash);
 }
 
+export function setSessionCookie(res: Response, token: string) {
+  res.cookie(sessionCookie, token, {
+    httpOnly: true,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    sameSite: env.NODE_ENV === "production" ? "none" : "lax",
+    secure: env.NODE_ENV === "production",
+  });
+}
+
+export function clearSessionCookie(res: Response) {
+  res.clearCookie(sessionCookie, {
+    httpOnly: true,
+    sameSite: env.NODE_ENV === "production" ? "none" : "lax",
+    secure: env.NODE_ENV === "production",
+  });
+}
+
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
   const authorization = req.headers.authorization || "";
-  const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
+  const bearerToken = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
+  const token = req.cookies?.[sessionCookie] || bearerToken;
 
   if (!token) {
     res.status(401).json({ message: "Autenticacao necessaria." });

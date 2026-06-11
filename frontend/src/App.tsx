@@ -17,10 +17,11 @@ import { BrandMark } from "./components/BrandMark";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { LoadingLabel } from "./components/skeletons";
 import { Badge, Button } from "./components/ui";
-import { api, tokenKey } from "./lib/api";
+import { api } from "./lib/api";
 import { createQueryClient } from "./lib/query";
 import type { ApiUser, AuthResponse } from "./lib/types";
 import { AuthScreen } from "./pages/AuthScreen";
+import { AuthActionScreen } from "./pages/AuthActionScreen";
 import { LandingPage } from "./pages/LandingPage";
 import { demoModeKey, demoToken } from "./demo";
 
@@ -57,28 +58,22 @@ function AppContent() {
   const isDemoMode = localStorage.getItem(demoModeKey) === "true";
 
   useEffect(() => {
-    if (!localStorage.getItem(tokenKey)) {
-      setAuthLoading(false);
-      return;
-    }
-
     api<{ user: ApiUser }>("/api/auth/me")
       .then((response) => setUser(response.user))
-      .catch(() => localStorage.removeItem(tokenKey))
+      .catch(() => setUser(null))
       .finally(() => setAuthLoading(false));
   }, []);
 
   function authenticate(response: AuthResponse) {
     queryClient.clear();
     if (response.token !== demoToken) localStorage.removeItem(demoModeKey);
-    localStorage.setItem(tokenKey, response.token);
     setUser(response.user);
     navigate("/financas");
   }
 
-  function logout() {
+  async function logout() {
     queryClient.clear();
-    localStorage.removeItem(tokenKey);
+    if (!isDemoMode) await api("/api/auth/logout", { method: "POST" }).catch(() => undefined);
     localStorage.removeItem(demoModeKey);
     setUser(null);
     navigate("/");
@@ -105,6 +100,9 @@ function AppContent() {
         }
         path="/login"
       />
+      <Route element={user ? <Navigate replace to="/financas" /> : <AuthActionScreen mode="forgot" />} path="/esqueci-senha" />
+      <Route element={<AuthActionScreen mode="reset" />} path="/redefinir-senha" />
+      <Route element={<AuthActionScreen mode="verify" />} path="/verificar-email" />
       <Route
         element={
           user ? (

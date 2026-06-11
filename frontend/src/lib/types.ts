@@ -2,6 +2,7 @@ export interface ApiUser {
   id: string;
   name: string;
   email: string;
+  emailVerified?: boolean;
 }
 
 export type TransactionType = "income" | "expense";
@@ -88,6 +89,6 @@ export interface Totals {
 }
 
 export interface AuthResponse {
-  token: string;
+  token?: string;
   user: ApiUser;
 }

@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Loader2, LogIn, ShieldCheck, UserPlus } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import { BrandMark } from "../components/BrandMark";
 import { FieldError } from "../components/FieldError";
@@ -183,6 +184,11 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
               </Button>
             </div>
             <FieldError error={fieldErrors.password} />
+            {!isRegister && (
+              <Link className="text-right text-xs font-medium text-emerald-300 hover:text-emerald-200" to="/esqueci-senha">
+                Esqueci minha senha
+              </Link>
+            )}
 
             {error && <p className="text-sm text-red-300">{error}</p>}
 

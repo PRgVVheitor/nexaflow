@@ -48,6 +48,12 @@ export const loginSchema = z
   })
   .strict();
 
+export const emailSchema = z.object({ email: z.string().trim().toLowerCase().email() }).strict();
+
+export const tokenSchema = z.object({ token: z.string().min(32).max(256) }).strict();
+
+export const resetPasswordSchema = tokenSchema.extend({ password }).strict();
+
 export const transactionSchema = z
   .object({
     amount: z.coerce.number().finite().positive().max(9999999999.99),

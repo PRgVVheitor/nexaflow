@@ -3,21 +3,21 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { app } from "../src/app.js";
 import { prisma } from "../src/db.js";
 import { envSchema } from "../src/env.js";
+import { createOpaqueToken, hashOpaqueToken } from "../src/email.js";
 
 const testPrefix = `ci-${Date.now()}`;
 const email = `${testPrefix}@example.com`;
 const password = "senha-segura-123";
-let token: string;
 let user: { id: string; name: string; email: string };
+const agent = request.agent(app);
 
 beforeAll(async () => {
   await prisma.$connect();
-  const response = await request(app).post("/api/auth/register").send({
+  const response = await agent.post("/api/auth/register").send({
     name: "Usuario de Teste",
     email,
     password,
   });
-  token = response.body.token;
   user = response.body.user;
 });
 
@@ -29,9 +29,8 @@ afterAll(async () => {
 function authenticated(
   method: "get" | "post" | "patch" | "delete",
   path: string,
-  authToken = token,
 ) {
-  return request(app)[method](path).set("Authorization", `Bearer ${authToken}`);
+  return agent[method](path);
 }
 
 describe("NexaFlow API", () => {
@@ -49,7 +48,6 @@ describe("NexaFlow API", () => {
   it("cadastra um usuario e restaura sua sessao", async () => {
     const response = await authenticated("get", "/api/auth/me");
 
-    expect(token).toEqual(expect.any(String));
     expect(user).toMatchObject({ name: "Usuario de Teste", email });
     expect(response.status).toBe(200);
     expect(response.body.user.email).toBe(email);
@@ -59,7 +57,9 @@ describe("NexaFlow API", () => {
     const response = await request(app).post("/api/auth/login").send({ email, password });
 
     expect(response.status).toBe(200);
-    expect(response.body.token).toEqual(expect.any(String));
+    expect(response.headers["set-cookie"]?.[0]).toContain("nexaflow_session=");
+    expect(response.headers["set-cookie"]?.[0]).toContain("HttpOnly");
+    expect(response.body.token).toBeUndefined();
   });
 
   it("padroniza conflitos de email no middleware central", async () => {
@@ -296,7 +296,8 @@ describe("NexaFlow API", () => {
   });
 
   it("isola os dados entre usuarios", async () => {
-    const secondUser = await request(app).post("/api/auth/register").send({
+    const secondAgent = request.agent(app);
+    await secondAgent.post("/api/auth/register").send({
       name: "Segundo Usuario",
       email: `${testPrefix}-second@example.com`,
       password,
@@ -306,12 +307,8 @@ describe("NexaFlow API", () => {
       priority: "media",
     });
 
-    const secondUserTasks = await authenticated("get", "/api/tasks", secondUser.body.token);
-    const forbiddenDelete = await authenticated(
-      "delete",
-      `/api/tasks/${created.body.id}`,
-      secondUser.body.token,
-    );
+    const secondUserTasks = await secondAgent.get("/api/tasks");
+    const forbiddenDelete = await secondAgent.delete(`/api/tasks/${created.body.id}`);
 
     expect(secondUserTasks.body).toEqual([]);
     expect(forbiddenDelete.status).toBe(404);
@@ -324,6 +321,75 @@ describe("NexaFlow API", () => {
 
     expect(response.status).toBe(404);
     expect(response.body.message).toBe("Rota nao encontrada.");
+  });
+
+  it("encerra a sessao removendo o cookie", async () => {
+    const logoutAgent = request.agent(app);
+    await logoutAgent.post("/api/auth/login").send({ email, password });
+    const logout = await logoutAgent.post("/api/auth/logout");
+    const me = await logoutAgent.get("/api/auth/me");
+
+    expect(logout.status).toBe(204);
+    expect(logout.headers["set-cookie"]?.[0]).toContain("nexaflow_session=;");
+    expect(me.status).toBe(401);
+  });
+
+  it("nao revela se um email existe na recuperacao de senha", async () => {
+    const existing = await request(app).post("/api/auth/forgot-password").send({ email });
+    const missing = await request(app)
+      .post("/api/auth/forgot-password")
+      .send({ email: `${testPrefix}-missing@example.com` });
+
+    expect(existing.status).toBe(200);
+    expect(missing.status).toBe(200);
+    expect(existing.body.message).toBe(missing.body.message);
+  });
+
+  it("verifica email com token opaco de uso unico", async () => {
+    const verificationToken = createOpaqueToken();
+    await prisma.emailVerificationToken.deleteMany({ where: { userId: user.id } });
+    await prisma.emailVerificationToken.create({
+      data: {
+        expiresAt: new Date(Date.now() + 60_000),
+        tokenHash: hashOpaqueToken(verificationToken),
+        userId: user.id,
+      },
+    });
+
+    const response = await request(app)
+      .post("/api/auth/verify-email")
+      .send({ token: verificationToken });
+    const reused = await request(app)
+      .post("/api/auth/verify-email")
+      .send({ token: verificationToken });
+
+    expect(response.status).toBe(200);
+    expect(reused.status).toBe(400);
+    expect((await prisma.user.findUnique({ where: { id: user.id } }))?.emailVerifiedAt).not.toBeNull();
+  });
+
+  it("redefine a senha com token opaco de uso unico", async () => {
+    const resetToken = createOpaqueToken();
+    const newPassword = "senha-nova-segura-123";
+    await prisma.passwordResetToken.create({
+      data: {
+        expiresAt: new Date(Date.now() + 60_000),
+        tokenHash: hashOpaqueToken(resetToken),
+        userId: user.id,
+      },
+    });
+
+    const reset = await request(app)
+      .post("/api/auth/reset-password")
+      .send({ password: newPassword, token: resetToken });
+    const login = await request(app).post("/api/auth/login").send({ email, password: newPassword });
+    const reused = await request(app)
+      .post("/api/auth/reset-password")
+      .send({ password: "outra-senha-segura-123", token: resetToken });
+
+    expect(reset.status).toBe(200);
+    expect(login.status).toBe(200);
+    expect(reused.status).toBe(400);
   });
 
   it("exige configuracao segura para iniciar em producao", () => {

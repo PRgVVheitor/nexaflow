@@ -8,15 +8,42 @@ datasource db {
 }
 
 model User {
-  id           String        @id @default(cuid())
-  name         String
-  email        String        @unique
-  passwordHash String
-  createdAt    DateTime      @default(now())
-  transactions Transaction[]
-  tasks        Task[]
-  goals        Goal[]
-  recurring    RecurringTransaction[]
+  id                 String        @id @default(cuid())
+  name               String
+  email              String        @unique
+  passwordHash       String
+  emailVerifiedAt    DateTime?
+  createdAt          DateTime      @default(now())
+  transactions       Transaction[]
+  tasks              Task[]
+  goals              Goal[]
+  recurring          RecurringTransaction[]
+  verificationTokens EmailVerificationToken[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Transaction {

@@ -132,6 +132,13 @@ beforeEach(() => {
   HTMLAnchorElement.prototype.click = vi.fn();
   globalThis.fetch = vi.fn(async (url: string | URL | Request) => {
     const path = new URL(String(url)).pathname;
+    if (path === "/api/auth/me" && !localStorage.getItem("nexaflow-token")) {
+      return {
+        ok: false,
+        status: 401,
+        json: async () => ({ message: "Autenticacao necessaria." }),
+      };
+    }
     return {
       ok: true,
       status: 200,
@@ -151,7 +158,7 @@ describe("NexaFlow", () => {
     render(<App />);
 
     expect(
-      screen.getByRole("heading", { name: "Suas finanças e tarefas em um painel único." }),
+      await screen.findByRole("heading", { name: "Suas finanças e tarefas em um painel único." }),
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Dashboard financeiro" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Taskly" })).toBeInTheDocument();
@@ -168,7 +175,7 @@ describe("NexaFlow", () => {
     window.history.pushState({}, "", "/login");
     render(<App />);
 
-    expect(screen.getByRole("img", { name: "Logo NexaFlow" })).toHaveAttribute(
+    expect(await screen.findByRole("img", { name: "Logo NexaFlow" })).toHaveAttribute(
       "src",
       "/nexaflow-mark.svg",
     );
@@ -184,14 +191,17 @@ describe("NexaFlow", () => {
     window.history.pushState({}, "", "/login");
     render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Usar conta demonstrativa" }));
+    await user.click(await screen.findByRole("button", { name: "Usar conta demonstrativa" }));
 
     expect(await screen.findByText("Usuário Demo")).toBeInTheDocument();
     expect(await screen.findByText("Mercado", {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /Nexa Score/ })).toBeInTheDocument();
     expect(localStorage.getItem("nexaflow-token")).toBe("demo-local-token");
     expect(localStorage.getItem("nexaflow-demo-mode")).toBe("true");
-    expect(globalThis.fetch).not.toHaveBeenCalled();
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "http://127.0.0.1:3001/api/auth/me",
+      expect.objectContaining({ credentials: "include" }),
+    );
   });
 
   it("envia somente email e senha no login", async () => {
@@ -199,9 +209,9 @@ describe("NexaFlow", () => {
     window.history.pushState({}, "", "/login");
     render(<App />);
 
-    await user.type(screen.getByPlaceholderText("seuemail@exemplo.com"), "heitor@example.com");
+    await user.type(await screen.findByPlaceholderText("seuemail@exemplo.com"), "heitor@example.com");
     await user.type(screen.getByPlaceholderText("Senha"), "senha-segura-123");
-    await user.click(screen.getByRole("button", { name: "Entrar" }));
+    await user.click(await screen.findByRole("button", { name: "Entrar" }));
 
     expect(globalThis.fetch).toHaveBeenCalledWith(
       "http://127.0.0.1:3001/api/auth/login",
@@ -219,11 +229,11 @@ describe("NexaFlow", () => {
     window.history.pushState({}, "", "/login");
     render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Entrar" }));
+    await user.click(await screen.findByRole("button", { name: "Entrar" }));
 
     expect(screen.getByText("Informe um email válido.")).toBeInTheDocument();
     expect(screen.getByText("A senha deve ter pelo menos 8 caracteres.")).toBeInTheDocument();
-    expect(globalThis.fetch).not.toHaveBeenCalled();
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
   });
 
   it("carrega o painel financeiro com dados da API", async () => {

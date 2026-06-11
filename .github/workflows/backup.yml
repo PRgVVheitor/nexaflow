@@ -1,0 +1,27 @@
+name: Backup PostgreSQL
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *"
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate secret
+        run: test -n "$PROD_DATABASE_URL"
+        env:
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+
+      - name: Create compressed backup
+        run: pg_dump "$PROD_DATABASE_URL" --format=custom --no-owner --file=nexaflow.dump
+        env:
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+
+      - name: Upload encrypted-at-rest workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexaflow-postgres-${{ github.run_id }}
+          path: nexaflow.dump
+          retention-days: 14

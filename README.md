@@ -66,6 +66,8 @@ Mostrar no GitHub um produto com separação clara entre front-end e back-end, c
 - Indicadores do Taskly com números destacados e anéis de progresso.
 - Feedbacks com toasts e validação visual nos formulários principais.
 - Cadastro, login, restauração de sessão e logout.
+- Sessão real protegida por cookie HttpOnly, Secure em produção e SameSite.
+- Verificação de email e recuperação de senha com tokens opacos, expiráveis e de uso único.
 - Dados financeiros e tarefas isolados por usuário.
 - Senhas protegidas com bcrypt e sessões assinadas com JWT.
 - Rate limiting nas rotas de login e cadastro.
@@ -76,7 +78,10 @@ Mostrar no GitHub um produto com separação clara entre front-end e back-end, c
 - Animações e transições com Framer Motion.
 - Persistência em PostgreSQL com Prisma ORM.
 - Migration inicial e seed reproduzível.
-- Blueprint do Render para criar API e banco.
+- Blueprint do Render para publicar frontend, API e banco.
+- Logs estruturados com Pino e monitoramento opcional de erros com Sentry.
+- Backup diário automatizado do PostgreSQL via GitHub Actions.
+- Auditorias automatizadas com axe, Lighthouse e Playwright em desktop e mobile.
 
 ## Como rodar com Docker
 
@@ -103,6 +108,9 @@ PORT=3001
 CLIENT_ORIGIN="http://127.0.0.1:5173"
 JWT_SECRET="troque-por-uma-chave-com-pelo-menos-32-caracteres"
 NODE_ENV="development"
+RESEND_API_KEY=""
+EMAIL_FROM="NexaFlow <onboarding@resend.dev>"
+SENTRY_DSN=""
 ```
 
 Para apontar o frontend para outra API, crie `frontend/.env` com base em `frontend/.env.example`.
@@ -176,9 +184,18 @@ npm run docker:up:db
 npm run dev:backend
 ```
 
-## Deploy do backend
+## Deploy
 
-O arquivo `render.yaml` cria uma API Node e um PostgreSQL no Render, aplica as migrations e sincroniza o seed demonstrativo em cada deploy. O seed usa `upsert`: garante os dados de demonstração sem apagar contas, tarefas ou transações existentes. Durante o deploy, configure `CLIENT_ORIGIN` com a URL publicada do frontend.
+O `render.yaml` cria o frontend estático, a API Node e o PostgreSQL no Render. No primeiro deploy, configure:
+
+- `VITE_API_URL`: URL HTTPS da API.
+- `CLIENT_ORIGIN`: URL HTTPS do frontend.
+- `RESEND_API_KEY` e `EMAIL_FROM`: credenciais para verificação de email e recuperação de senha.
+- `SENTRY_DSN` e `VITE_SENTRY_DSN`: opcionais, para monitoramento de erros no backend e frontend.
+
+O deploy aplica as migrations e sincroniza o seed demonstrativo. O seed usa `upsert`: garante os dados de demonstração sem apagar contas, tarefas ou transações existentes.
+
+Para ativar o backup diário, adicione `PROD_DATABASE_URL` aos GitHub Actions Secrets. O workflow `.github/workflows/backup.yml` também pode ser executado manualmente. Valide periodicamente a restauração do arquivo com `pg_restore`.
 
 ## Estrutura do frontend
 
@@ -210,11 +227,12 @@ Para o teste end-to-end (Playwright, usa o modo demonstrativo e não precisa de 
 ```bash
 cd frontend
 npm run test:e2e
+npm run test:a11y
+npm run audit:lighthouse
 ```
 
-O workflow `.github/workflows/ci.yml` cria um PostgreSQL temporário e executa lint, type-check, migrations, testes, build e E2E automaticamente em cada push e pull request.
+O workflow `.github/workflows/ci.yml` cria um PostgreSQL temporário e executa lint, type-check, migrations, testes, build, E2E em desktop/mobile, acessibilidade e Lighthouse automaticamente em cada push e pull request.
 
 ## Próximas melhorias
 
-- Publicar o frontend e conectar ao backend hospedado.
 - Paginação e filtros de período direto na API de transações.

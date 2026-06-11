@@ -1,32 +1,47 @@
 import { Prisma } from "@prisma/client";
 import type { Goal, RecurringTransaction, Task, Transaction } from "@prisma/client";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import express from "express";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
+import { pinoHttp } from "pino-http";
 import { ZodError, type z } from "zod";
 import {
   createToken,
+  clearSessionCookie,
   hashPassword,
   publicUser,
   requireAuth,
+  setSessionCookie,
   verifyPassword,
 } from "./auth.js";
 import { prisma } from "./db.js";
+import {
+  createOpaqueToken,
+  hashOpaqueToken,
+  sendPasswordResetEmail,
+  sendVerificationEmail,
+} from "./email.js";
 import { env } from "./env.js";
 import { buildFinancialIntelligence } from "./finance-intelligence.js";
 import { materializeRecurring } from "./recurring.js";
+import { logger } from "./logger.js";
+import { Sentry } from "./monitoring.js";
 import {
+  emailSchema,
   goalSchema,
   loginSchema,
   recurringSchema,
   recurringUpdateSchema,
   registerSchema,
+  resetPasswordSchema,
   taskSchema,
   taskUpdateSchema,
   transactionSchema,
   transactionUpdateSchema,
+  tokenSchema,
   validateBody,
 } from "./validation.js";
 
@@ -35,8 +50,22 @@ export const app = express();
 app.disable("x-powered-by");
 if (env.NODE_ENV === "production") app.set("trust proxy", 1);
 app.use(helmet());
-app.use(cors({ origin: env.CLIENT_ORIGIN }));
+app.use(cors({ credentials: true, origin: env.CLIENT_ORIGIN }));
+app.use(pinoHttp({ logger }));
+app.use(cookieParser());
 app.use(express.json({ limit: "16kb" }));
+
+app.use((req, res, next) => {
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method) || !req.headers.origin) {
+    next();
+    return;
+  }
+  if (req.headers.origin !== env.CLIENT_ORIGIN) {
+    res.status(403).json({ message: "Origem nao autorizada." });
+    return;
+  }
+  next();
+});
 
 const authLimiter = rateLimit({
   handler: (req, res) => {
@@ -94,6 +123,23 @@ function authUserId(req: Request) {
   return req.auth!.userId;
 }
 
+async function createVerification(userId: string, email: string) {
+  const token = createOpaqueToken();
+  await prisma.emailVerificationToken.deleteMany({ where: { userId } });
+  await prisma.emailVerificationToken.create({
+    data: {
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      tokenHash: hashOpaqueToken(token),
+      userId,
+    },
+  });
+  try {
+    await sendVerificationEmail(email, token);
+  } catch (error) {
+    logger.error({ err: error, userId }, "Falha ao enviar email de verificacao");
+  }
+}
+
 app.get(
   "/api/health",
   asyncRoute(async (req, res) => {
@@ -115,8 +161,9 @@ app.post(
         passwordHash: await hashPassword(password),
       },
     });
-
-    res.status(201).json({ token: createToken(user), user: publicUser(user) });
+    await createVerification(user.id, user.email);
+    setSessionCookie(res, createToken(user));
+    res.status(201).json({ user: publicUser(user) });
   }),
 );
 
@@ -133,9 +180,15 @@ app.post(
       return;
     }
 
-    res.json({ token: createToken(user), user: publicUser(user) });
+    setSessionCookie(res, createToken(user));
+    res.json({ user: publicUser(user) });
   }),
 );
+
+app.post("/api/auth/logout", (_req, res) => {
+  clearSessionCookie(res);
+  res.status(204).end();
+});
 
 app.get(
   "/api/auth/me",
@@ -149,6 +202,93 @@ app.get(
     }
 
     res.json({ user: publicUser(user) });
+  }),
+);
+
+app.post(
+  "/api/auth/request-verification",
+  authLimiter,
+  validateBody(emailSchema),
+  asyncRoute(async (req, res) => {
+    const { email } = validated(req, emailSchema);
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (user && !user.emailVerifiedAt) await createVerification(user.id, user.email);
+    res.json({ message: "Se a conta existir, enviaremos um link de verificacao." });
+  }),
+);
+
+app.post(
+  "/api/auth/verify-email",
+  authLimiter,
+  validateBody(tokenSchema),
+  asyncRoute(async (req, res) => {
+    const { token } = validated(req, tokenSchema);
+    const verification = await prisma.emailVerificationToken.findUnique({
+      where: { tokenHash: hashOpaqueToken(token) },
+    });
+    if (!verification || verification.expiresAt < new Date()) {
+      res.status(400).json({ message: "Link invalido ou expirado." });
+      return;
+    }
+    await prisma.$transaction([
+      prisma.user.update({
+        data: { emailVerifiedAt: new Date() },
+        where: { id: verification.userId },
+      }),
+      prisma.emailVerificationToken.deleteMany({ where: { userId: verification.userId } }),
+    ]);
+    res.json({ message: "Email verificado com sucesso." });
+  }),
+);
+
+app.post(
+  "/api/auth/forgot-password",
+  authLimiter,
+  validateBody(emailSchema),
+  asyncRoute(async (req, res) => {
+    const { email } = validated(req, emailSchema);
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (user) {
+      const token = createOpaqueToken();
+      await prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
+      await prisma.passwordResetToken.create({
+        data: {
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+          tokenHash: hashOpaqueToken(token),
+          userId: user.id,
+        },
+      });
+      try {
+        await sendPasswordResetEmail(user.email, token);
+      } catch (error) {
+        logger.error({ err: error, userId: user.id }, "Falha ao enviar recuperacao de senha");
+      }
+    }
+    res.json({ message: "Se a conta existir, enviaremos instrucoes para redefinir a senha." });
+  }),
+);
+
+app.post(
+  "/api/auth/reset-password",
+  authLimiter,
+  validateBody(resetPasswordSchema),
+  asyncRoute(async (req, res) => {
+    const { password, token } = validated(req, resetPasswordSchema);
+    const reset = await prisma.passwordResetToken.findUnique({
+      where: { tokenHash: hashOpaqueToken(token) },
+    });
+    if (!reset || reset.expiresAt < new Date()) {
+      res.status(400).json({ message: "Link invalido ou expirado." });
+      return;
+    }
+    await prisma.$transaction([
+      prisma.user.update({
+        data: { passwordHash: await hashPassword(password) },
+        where: { id: reset.userId },
+      }),
+      prisma.passwordResetToken.deleteMany({ where: { userId: reset.userId } }),
+    ]);
+    res.json({ message: "Senha redefinida com sucesso." });
   }),
 );
 
@@ -475,6 +615,7 @@ app.use((error: unknown, req: Request, res: Response, next: NextFunction) => {
     }
   }
 
-  console.error(error);
+  req.log.error({ err: error }, "Erro nao tratado");
+  Sentry.captureException(error);
   res.status(500).json({ message: "Erro interno no servidor." });
 });

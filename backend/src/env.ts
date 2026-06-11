@@ -12,12 +12,15 @@ export const envSchema = z
     DATABASE_URL: z
       .string()
       .regex(/^postgres(?:ql)?:\/\//, "DATABASE_URL deve apontar para PostgreSQL."),
+    EMAIL_FROM: z.string().min(3).default("NexaFlow <onboarding@resend.dev>"),
     JWT_SECRET: z.preprocess(
       (value) => (value === "" ? undefined : value),
       z.string().optional(),
     ),
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     PORT: z.coerce.number().int().min(1).max(65535).default(3001),
+    RESEND_API_KEY: z.string().optional(),
+    SENTRY_DSN: z.string().url().optional(),
   })
   .superRefine((values, context) => {
     if (values.NODE_ENV !== "production") {
@@ -46,6 +49,7 @@ export const envSchema = z
         path: ["JWT_SECRET"],
       });
     }
+
   });
 
 const result = envSchema.safeParse(process.env);
