@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { format } from "date-fns";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -84,6 +85,7 @@ import {
   shortMonth,
 } from "../lib/format";
 import { transactionFormSchema, type TransactionFormValues } from "../lib/schemas";
+import { queryKeys } from "../lib/query";
 import type {
   Goal,
   Intelligence,
@@ -120,6 +122,10 @@ interface EditingTransaction {
   amount: string;
 }
 
+const emptyGoals: Goal[] = [];
+const emptyRecurrences: RecurringTransaction[] = [];
+const emptyTransactions: Transaction[] = [];
+
 function monthCumulativeByDay(transactions: Transaction[], key: string): number[] {
   const [year, month] = key.split("-").map(Number);
   const daysInMonth = new Date(year!, month!, 0).getDate();
@@ -137,11 +143,6 @@ function monthCumulativeByDay(transactions: Transaction[], key: string): number[
 }
 
 export function FinanceDashboard() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [intelligence, setIntelligence] = useState<Intelligence | null>(null);
-  const [goals, setGoals] = useState<Goal[]>([]);
-  const [recurrences, setRecurrences] = useState<RecurringTransaction[]>([]);
-  const [intelligenceLoading, setIntelligenceLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [periodFilter, setPeriodFilter] = useState("all");
@@ -153,52 +154,31 @@ export function FinanceDashboard() {
   const [comparisonMonth, setComparisonMonth] = useState(() =>
     shiftMonth(monthKey(new Date()), -1),
   );
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  async function loadTransactions() {
-    setLoading(true);
-    setIntelligenceLoading(true);
-    setError("");
-    try {
-      const [transactionsResult, intelligenceResult, goalsResult, recurringResult] =
-        await Promise.allSettled([
-          api<Transaction[]>("/api/transactions"),
-          api<Intelligence>("/api/finance/intelligence"),
-          api<Goal[]>("/api/goals"),
-          api<RecurringTransaction[]>("/api/recurring"),
-        ]);
-      if (transactionsResult.status === "rejected") throw transactionsResult.reason;
-      setTransactions(transactionsResult.value);
-      if (intelligenceResult.status === "fulfilled") {
-        setIntelligence(intelligenceResult.value);
-      }
-      if (goalsResult.status === "fulfilled") {
-        setGoals(goalsResult.value);
-      }
-      if (recurringResult.status === "fulfilled") {
-        setRecurrences(recurringResult.value);
-      }
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Erro na API.");
-    } finally {
-      setLoading(false);
-      setIntelligenceLoading(false);
-    }
-  }
-
-  async function refreshIntelligence() {
-    try {
-      setIntelligence(await api<Intelligence>("/api/finance/intelligence"));
-    } catch (requestError) {
-      toast.error(requestError instanceof Error ? requestError.message : "Erro na API.");
-    }
-  }
-
-  useEffect(() => {
-    loadTransactions();
-     
-  }, []);
+  const queryClient = useQueryClient();
+  const transactionsQuery = useQuery({
+    queryKey: queryKeys.transactions,
+    queryFn: () => api<Transaction[]>("/api/transactions"),
+  });
+  const intelligenceQuery = useQuery({
+    queryKey: queryKeys.financeIntelligence,
+    queryFn: () => api<Intelligence>("/api/finance/intelligence"),
+  });
+  const goalsQuery = useQuery({
+    queryKey: queryKeys.goals,
+    queryFn: () => api<Goal[]>("/api/goals"),
+  });
+  const recurringQuery = useQuery({
+    queryKey: queryKeys.recurring,
+    queryFn: () => api<RecurringTransaction[]>("/api/recurring"),
+  });
+  const transactions = transactionsQuery.data ?? emptyTransactions;
+  const intelligence = intelligenceQuery.data ?? null;
+  const goals = goalsQuery.data ?? emptyGoals;
+  const recurrences = recurringQuery.data ?? emptyRecurrences;
+  const loading = transactionsQuery.isPending || goalsQuery.isPending || recurringQuery.isPending;
+  const intelligenceLoading = intelligenceQuery.isPending;
+  const error =
+    transactionsQuery.error instanceof Error ? transactionsQuery.error.message : "";
 
   const categories = useMemo(
     () => [...new Set(transactions.map((item) => item.category))].sort(),
@@ -363,16 +343,110 @@ export function FinanceDashboard() {
     }, {});
   }, [transactions, currentMonth]);
 
-  async function saveGoal(category: string, monthlyLimit: number) {
-    try {
-      const saved = await api<Goal>("/api/goals", {
+  function refreshFinancialAnalysis() {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.financeIntelligence });
+  }
+
+  const saveGoalMutation = useMutation({
+    mutationFn: ({ category, monthlyLimit }: { category: string; monthlyLimit: number }) =>
+      api<Goal>("/api/goals", {
         method: "POST",
         body: JSON.stringify({ category, monthlyLimit }),
-      });
-      setGoals((current) => {
+      }),
+    onSuccess: (saved) => {
+      queryClient.setQueryData<Goal[]>(queryKeys.goals, (current = []) => {
         const others = current.filter((goal) => goal.category !== saved.category);
         return [...others, saved].sort((a, b) => a.category.localeCompare(b.category));
       });
+    },
+  });
+  const deleteGoalMutation = useMutation({
+    mutationFn: (id: string) => api(`/api/goals/${id}`, { method: "DELETE" }),
+    onSuccess: (_result, id) => {
+      queryClient.setQueryData<Goal[]>(queryKeys.goals, (current = []) =>
+        current.filter((goal) => goal.id !== id),
+      );
+    },
+  });
+  const createRecurrenceMutation = useMutation({
+    mutationFn: (data: RecurringFormValues) =>
+      api<RecurringTransaction>("/api/recurring", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: (created) => {
+      queryClient.setQueryData<RecurringTransaction[]>(queryKeys.recurring, (current = []) => [
+        created,
+        ...current,
+      ]);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.transactions });
+      refreshFinancialAnalysis();
+    },
+  });
+  const toggleRecurrenceMutation = useMutation({
+    mutationFn: (recurrence: RecurringTransaction) =>
+      api<RecurringTransaction>(`/api/recurring/${recurrence.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ active: !recurrence.active }),
+      }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData<RecurringTransaction[]>(queryKeys.recurring, (current = []) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      );
+      if (updated.active) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.transactions });
+        refreshFinancialAnalysis();
+      }
+    },
+  });
+  const deleteRecurrenceMutation = useMutation({
+    mutationFn: (id: string) => api(`/api/recurring/${id}`, { method: "DELETE" }),
+    onSuccess: (_result, id) => {
+      queryClient.setQueryData<RecurringTransaction[]>(queryKeys.recurring, (current = []) =>
+        current.filter((item) => item.id !== id),
+      );
+    },
+  });
+  const createTransactionMutation = useMutation({
+    mutationFn: (data: TransactionFormValues) =>
+      api<Transaction>("/api/transactions", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: (created) => {
+      queryClient.setQueryData<Transaction[]>(queryKeys.transactions, (current = []) => [
+        created,
+        ...current,
+      ]);
+      refreshFinancialAnalysis();
+    },
+  });
+  const deleteTransactionMutation = useMutation({
+    mutationFn: (id: string) => api(`/api/transactions/${id}`, { method: "DELETE" }),
+    onSuccess: (_result, id) => {
+      queryClient.setQueryData<Transaction[]>(queryKeys.transactions, (current = []) =>
+        current.filter((transaction) => transaction.id !== id),
+      );
+      refreshFinancialAnalysis();
+    },
+  });
+  const updateTransactionMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: TransactionFormValues }) =>
+      api<Transaction>(`/api/transactions/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData<Transaction[]>(queryKeys.transactions, (current = []) =>
+        current.map((transaction) => (transaction.id === updated.id ? updated : transaction)),
+      );
+      refreshFinancialAnalysis();
+    },
+  });
+
+  async function saveGoal(category: string, monthlyLimit: number) {
+    try {
+      await saveGoalMutation.mutateAsync({ category, monthlyLimit });
       toast.success("Meta salva.");
       return true;
     } catch (requestError) {
@@ -383,8 +457,7 @@ export function FinanceDashboard() {
 
   async function deleteGoal(id: string) {
     try {
-      await api(`/api/goals/${id}`, { method: "DELETE" });
-      setGoals((current) => current.filter((goal) => goal.id !== id));
+      await deleteGoalMutation.mutateAsync(id);
       toast.success("Meta removida.");
     } catch (requestError) {
       toast.error(requestError instanceof Error ? requestError.message : "Erro na API.");
@@ -393,12 +466,8 @@ export function FinanceDashboard() {
 
   async function createRecurrence(data: RecurringFormValues) {
     try {
-      await api<RecurringTransaction>("/api/recurring", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      await createRecurrenceMutation.mutateAsync(data);
       toast.success("Recorrência criada.");
-      await loadTransactions();
       return true;
     } catch (requestError) {
       toast.error(requestError instanceof Error ? requestError.message : "Erro na API.");
@@ -408,15 +477,8 @@ export function FinanceDashboard() {
 
   async function toggleRecurrence(recurrence: RecurringTransaction) {
     try {
-      const updated = await api<RecurringTransaction>(`/api/recurring/${recurrence.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ active: !recurrence.active }),
-      });
-      setRecurrences((current) =>
-        current.map((item) => (item.id === updated.id ? updated : item)),
-      );
+      const updated = await toggleRecurrenceMutation.mutateAsync(recurrence);
       toast.success(updated.active ? "Recorrência reativada." : "Recorrência pausada.");
-      if (updated.active) await loadTransactions();
     } catch (requestError) {
       toast.error(requestError instanceof Error ? requestError.message : "Erro na API.");
     }
@@ -424,8 +486,7 @@ export function FinanceDashboard() {
 
   async function deleteRecurrence(id: string) {
     try {
-      await api(`/api/recurring/${id}`, { method: "DELETE" });
-      setRecurrences((current) => current.filter((item) => item.id !== id));
+      await deleteRecurrenceMutation.mutateAsync(id);
       toast.success("Recorrência removida.");
     } catch (requestError) {
       toast.error(requestError instanceof Error ? requestError.message : "Erro na API.");
@@ -435,12 +496,7 @@ export function FinanceDashboard() {
   async function createTransaction(data: TransactionFormValues) {
 
     try {
-      const created = await api<Transaction>("/api/transactions", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
-      setTransactions((current) => [created, ...current]);
-      refreshIntelligence();
+      await createTransactionMutation.mutateAsync(data);
       toast.success("Transação adicionada.");
       return true;
     } catch (requestError) {
@@ -451,9 +507,7 @@ export function FinanceDashboard() {
 
   async function deleteTransaction(id: string) {
     try {
-      await api(`/api/transactions/${id}`, { method: "DELETE" });
-      setTransactions((current) => current.filter((item) => item.id !== id));
-      refreshIntelligence();
+      await deleteTransactionMutation.mutateAsync(id);
       toast.success("Transação removida.");
     } catch (requestError) {
       toast.error(requestError instanceof Error ? requestError.message : "Erro na API.");
@@ -486,15 +540,11 @@ export function FinanceDashboard() {
     }
 
     try {
-      const updated = await api<Transaction>(`/api/transactions/${editingTransaction.id}`, {
-        method: "PATCH",
-        body: JSON.stringify(result.data),
+      await updateTransactionMutation.mutateAsync({
+        id: editingTransaction.id,
+        data: result.data,
       });
-      setTransactions((current) =>
-        current.map((transaction) => (transaction.id === updated.id ? updated : transaction)),
-      );
       setEditingTransaction(null);
-      refreshIntelligence();
       toast.success("Transação atualizada.");
     } catch (requestError) {
       toast.error(requestError instanceof Error ? requestError.message : "Erro na API.");

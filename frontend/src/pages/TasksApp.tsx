@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2,
   Columns3,
@@ -11,7 +12,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "react-hot-toast";
 import { Controller, useForm } from "react-hook-form";
 import { DatePicker } from "../components/DatePicker";
@@ -36,6 +37,7 @@ import {
 import { api } from "../lib/api";
 import { taskMatchesDeadline } from "../lib/dates";
 import { displayPriority, priorityVariant } from "../lib/format";
+import { queryKeys } from "../lib/query";
 import { taskFormSchema, type TaskFormValues } from "../lib/schemas";
 import type { Task, TaskPriority } from "../lib/types";
 import { cn } from "../lib/utils";
@@ -48,12 +50,11 @@ interface EditingTask {
 }
 
 export function TasksApp() {
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [filter, setFilter] = useState<"all" | "pending" | "done">("all");
   const [deadlineFilter, setDeadlineFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"list" | "board">("list");
   const [editingTask, setEditingTask] = useState<EditingTask | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const {
     control: taskControl,
     formState: { errors: taskErrors, isSubmitting: taskSubmitting },
@@ -65,21 +66,43 @@ export function TasksApp() {
     resolver: zodResolver(taskFormSchema),
   });
 
-  async function loadTasks() {
-    setLoading(true);
-    try {
-      setTasks(await api<Task[]>("/api/tasks"));
-    } catch (requestError) {
-      toast.error(requestError instanceof Error ? requestError.message : "Erro na API.");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const tasksQuery = useQuery({
+    queryKey: queryKeys.tasks,
+    queryFn: () => api<Task[]>("/api/tasks"),
+  });
+  const tasks = tasksQuery.data ?? [];
+  const loading = tasksQuery.isPending;
 
-  useEffect(() => {
-    loadTasks();
-     
-  }, []);
+  const createTaskMutation = useMutation({
+    mutationFn: (data: TaskFormValues) =>
+      api<Task>("/api/tasks", {
+        method: "POST",
+        body: JSON.stringify({ ...data, dueDate: data.dueDate || null }),
+      }),
+    onSuccess: (created) => {
+      queryClient.setQueryData<Task[]>(queryKeys.tasks, (current = []) => [created, ...current]);
+    },
+  });
+  const updateTaskMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<Task> }) =>
+      api<Task>(`/api/tasks/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData<Task[]>(queryKeys.tasks, (current = []) =>
+        current.map((task) => (task.id === updated.id ? updated : task)),
+      );
+    },
+  });
+  const deleteTaskMutation = useMutation({
+    mutationFn: (id: string) => api(`/api/tasks/${id}`, { method: "DELETE" }),
+    onSuccess: (_result, id) => {
+      queryClient.setQueryData<Task[]>(queryKeys.tasks, (current = []) =>
+        current.filter((task) => task.id !== id),
+      );
+    },
+  });
 
   const deadlineTasks = tasks.filter((task) => taskMatchesDeadline(task, deadlineFilter));
   const visibleTasks = deadlineTasks.filter((task) => {
@@ -96,11 +119,7 @@ export function TasksApp() {
 
   async function createTask(data: TaskFormValues) {
     try {
-      const created = await api<Task>("/api/tasks", {
-        method: "POST",
-        body: JSON.stringify({ ...data, dueDate: data.dueDate || null }),
-      });
-      setTasks((current) => [created, ...current]);
+      await createTaskMutation.mutateAsync(data);
       resetTask({ dueDate: "", priority: "media", title: "" });
       toast.success("Tarefa adicionada.");
     } catch (requestError) {
@@ -110,11 +129,10 @@ export function TasksApp() {
 
   async function toggleTask(task: Task) {
     try {
-      const updated = await api<Task>(`/api/tasks/${task.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ done: !task.done }),
+      const updated = await updateTaskMutation.mutateAsync({
+        id: task.id,
+        data: { done: !task.done },
       });
-      setTasks((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       toast.success(updated.done ? "Tarefa concluída." : "Tarefa reaberta.");
     } catch (requestError) {
       toast.error(requestError instanceof Error ? requestError.message : "Erro na API.");
@@ -139,15 +157,14 @@ export function TasksApp() {
       return;
     }
     try {
-      const updated = await api<Task>(`/api/tasks/${editingTask.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({
+      await updateTaskMutation.mutateAsync({
+        id: editingTask.id,
+        data: {
           title: result.data.title,
           priority: result.data.priority,
           dueDate: result.data.dueDate || null,
-        }),
+        },
       });
-      setTasks((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setEditingTask(null);
       toast.success("Tarefa atualizada.");
     } catch (requestError) {
@@ -157,8 +174,7 @@ export function TasksApp() {
 
   async function deleteTask(id: string) {
     try {
-      await api(`/api/tasks/${id}`, { method: "DELETE" });
-      setTasks((current) => current.filter((item) => item.id !== id));
+      await deleteTaskMutation.mutateAsync(id);
       if (editingTask?.id === id) setEditingTask(null);
       toast.success("Tarefa removida.");
     } catch (requestError) {

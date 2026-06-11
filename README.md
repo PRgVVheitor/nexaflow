@@ -19,6 +19,7 @@ Mostrar no GitHub um produto com separação clara entre front-end e back-end, c
 - Lucide React
 - React Hook Form
 - React Router DOM
+- TanStack Query
 - React DayPicker
 - date-fns
 - React Hot Toast
@@ -48,6 +49,7 @@ Mostrar no GitHub um produto com separação clara entre front-end e back-end, c
 - Comparação mensal em onda: saldo acumulado dia a dia de dois meses lado a lado.
 - Dashboard financeiro responsivo com gráfico de ondas comparando períodos, barras horizontais de gastos por categoria, indicadores de saldo, entradas e saídas, seleção e comparação mensal.
 - Mikal, assistente financeiro flutuante com perguntas rápidas e respostas calculadas a partir dos dados da conta.
+- Cache e sincronização do estado da API com TanStack Query, incluindo mutations e Devtools em desenvolvimento.
 - Inteligência Financeira V1 com Nexa Score explicável, previsão de saldo em 7, 15 e 30 dias, alertas de anomalias e feed de insights.
 - Filtros financeiros por semana, mês, ano ou intervalo personalizado.
 - Data própria em cada transação: registre lançamentos retroativos e corrija a data depois.

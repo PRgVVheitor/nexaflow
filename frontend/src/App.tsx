@@ -2,6 +2,8 @@ import { motion } from "framer-motion";
 import { ClipboardList, DollarSign, LogOut } from "lucide-react";
 import { Suspense, lazy, useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
+import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
   BrowserRouter,
   Navigate,
@@ -16,6 +18,7 @@ import { ThemeToggle } from "./components/ThemeToggle";
 import { LoadingLabel } from "./components/skeletons";
 import { Badge, Button } from "./components/ui";
 import { api, tokenKey } from "./lib/api";
+import { createQueryClient } from "./lib/query";
 import type { ApiUser, AuthResponse } from "./lib/types";
 import { AuthScreen } from "./pages/AuthScreen";
 import { LandingPage } from "./pages/LandingPage";
@@ -34,10 +37,15 @@ const tabs = [
 ];
 
 function App() {
+  const [queryClient] = useState(createQueryClient);
+
   return (
-    <BrowserRouter>
-      <AppContent />
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <AppContent />
+      </BrowserRouter>
+      {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+    </QueryClientProvider>
   );
 }
 
@@ -45,6 +53,7 @@ function AppContent() {
   const [user, setUser] = useState<ApiUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const isDemoMode = localStorage.getItem(demoModeKey) === "true";
 
   useEffect(() => {
@@ -60,6 +69,7 @@ function AppContent() {
   }, []);
 
   function authenticate(response: AuthResponse) {
+    queryClient.clear();
     if (response.token !== demoToken) localStorage.removeItem(demoModeKey);
     localStorage.setItem(tokenKey, response.token);
     setUser(response.user);
@@ -67,6 +77,7 @@ function AppContent() {
   }
 
   function logout() {
+    queryClient.clear();
     localStorage.removeItem(tokenKey);
     localStorage.removeItem(demoModeKey);
     setUser(null);

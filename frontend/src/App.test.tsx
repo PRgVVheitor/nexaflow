@@ -432,6 +432,23 @@ describe("NexaFlow", () => {
     expect(screen.getByRole("img", { name: "100% pendentes" })).toBeInTheDocument();
   });
 
+  it("reutiliza o cache financeiro ao navegar entre módulos", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("nexaflow-token", "token-test");
+    render(<App />);
+
+    await screen.findByText("Salario de teste");
+    await user.click(screen.getByTitle("Taskly"));
+    await screen.findByText("Publicar NexaFlow");
+    await user.click(screen.getByTitle("Finanças"));
+    await screen.findByText("Salario de teste");
+
+    const transactionRequests = vi
+      .mocked(globalThis.fetch)
+      .mock.calls.filter(([url]) => new URL(String(url)).pathname === "/api/transactions");
+    expect(transactionRequests).toHaveLength(1);
+  });
+
   it("permite editar titulo, prioridade e prazo de uma tarefa", async () => {
     const user = userEvent.setup();
     responses["/api/tasks/task-test"] = {
