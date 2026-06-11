@@ -1,9 +1,11 @@
 import { Prisma } from "@prisma/client";
+import type { Task, Transaction } from "@prisma/client";
 import cors from "cors";
 import express from "express";
+import type { NextFunction, Request, RequestHandler, Response } from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
-import { ZodError } from "zod";
+import { ZodError, type z } from "zod";
 import {
   createToken,
   hashPassword,
@@ -45,13 +47,19 @@ const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
 });
 
-function asyncRoute(handler) {
+function asyncRoute(
+  handler: (req: Request, res: Response, next: NextFunction) => Promise<void>,
+): RequestHandler {
   return (req, res, next) => {
     Promise.resolve(handler(req, res, next)).catch(next);
   };
 }
 
-function serializeTransaction(transaction) {
+function validated<Schema extends z.ZodType>(req: Request, _schema: Schema) {
+  return req.validatedBody as z.infer<Schema>;
+}
+
+function serializeTransaction(transaction: Transaction) {
   return {
     ...transaction,
     amount: Number(transaction.amount),
@@ -59,15 +67,19 @@ function serializeTransaction(transaction) {
   };
 }
 
-function parseDateOnly(value) {
-  return new Date(`${value}T00:00:00.000Z`);
-}
-
-function serializeTask(task) {
+function serializeTask(task: Task) {
   return {
     ...task,
     dueDate: task.dueDate ? task.dueDate.toISOString().slice(0, 10) : null,
   };
+}
+
+function parseDateOnly(value: string) {
+  return new Date(`${value}T00:00:00.000Z`);
+}
+
+function authUserId(req: Request) {
+  return req.auth!.userId;
 }
 
 app.get(
@@ -83,7 +95,7 @@ app.post(
   authLimiter,
   validateBody(registerSchema),
   asyncRoute(async (req, res) => {
-    const { email, name, password } = req.validatedBody;
+    const { email, name, password } = validated(req, registerSchema);
     const user = await prisma.user.create({
       data: {
         name,
@@ -101,7 +113,7 @@ app.post(
   authLimiter,
   validateBody(loginSchema),
   asyncRoute(async (req, res) => {
-    const { email, password } = req.validatedBody;
+    const { email, password } = validated(req, loginSchema);
     const user = await prisma.user.findUnique({ where: { email } });
 
     if (!user || !(await verifyPassword(password, user.passwordHash))) {
@@ -117,7 +129,7 @@ app.get(
   "/api/auth/me",
   requireAuth,
   asyncRoute(async (req, res) => {
-    const user = await prisma.user.findUnique({ where: { id: req.auth.userId } });
+    const user = await prisma.user.findUnique({ where: { id: authUserId(req) } });
 
     if (!user) {
       res.status(401).json({ message: "Usuario nao encontrado." });
@@ -133,7 +145,7 @@ app.get(
   requireAuth,
   asyncRoute(async (req, res) => {
     const transactions = await prisma.transaction.findMany({
-      where: { userId: req.auth.userId },
+      where: { userId: authUserId(req) },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     });
     res.json(transactions.map(serializeTransaction));
@@ -145,7 +157,7 @@ app.get(
   requireAuth,
   asyncRoute(async (req, res) => {
     const transactions = await prisma.transaction.findMany({
-      where: { userId: req.auth.userId },
+      where: { userId: authUserId(req) },
       orderBy: [{ date: "asc" }, { createdAt: "asc" }],
     });
     res.json(buildFinancialIntelligence(transactions));
@@ -157,7 +169,7 @@ app.post(
   requireAuth,
   validateBody(transactionSchema),
   asyncRoute(async (req, res) => {
-    const { amount, category, date, description, type } = req.validatedBody;
+    const { amount, category, date, description, type } = validated(req, transactionSchema);
     const transaction = await prisma.transaction.create({
       data: {
         description,
@@ -165,7 +177,7 @@ app.post(
         type,
         amount,
         ...(date ? { date: parseDateOnly(date) } : {}),
-        userId: req.auth.userId,
+        userId: authUserId(req),
       },
     });
     res.status(201).json(serializeTransaction(transaction));
@@ -177,13 +189,13 @@ app.patch(
   requireAuth,
   validateBody(transactionUpdateSchema),
   asyncRoute(async (req, res) => {
-    const data = { ...req.validatedBody };
-    if (data.date) data.date = parseDateOnly(data.date);
+    const { date, ...rest } = validated(req, transactionUpdateSchema);
+    const data = { ...rest, ...(date ? { date: parseDateOnly(date) } : {}) };
 
     try {
       const transaction = await prisma.transaction.update({
         data,
-        where: { id: req.params.id, userId: req.auth.userId },
+        where: { id: req.params.id, userId: authUserId(req) },
       });
       res.json(serializeTransaction(transaction));
     } catch (error) {
@@ -201,7 +213,7 @@ app.delete(
   requireAuth,
   asyncRoute(async (req, res) => {
     const result = await prisma.transaction.deleteMany({
-      where: { id: req.params.id, userId: req.auth.userId },
+      where: { id: req.params.id, userId: authUserId(req) },
     });
 
     if (!result.count) {
@@ -218,7 +230,7 @@ app.get(
   requireAuth,
   asyncRoute(async (req, res) => {
     const tasks = await prisma.task.findMany({
-      where: { userId: req.auth.userId },
+      where: { userId: authUserId(req) },
       orderBy: { createdAt: "desc" },
     });
     res.json(tasks.map(serializeTask));
@@ -230,13 +242,13 @@ app.post(
   requireAuth,
   validateBody(taskSchema),
   asyncRoute(async (req, res) => {
-    const { dueDate, priority, title } = req.validatedBody;
+    const { dueDate, priority, title } = validated(req, taskSchema);
     const task = await prisma.task.create({
       data: {
         title,
         priority,
         dueDate: dueDate ? parseDateOnly(dueDate) : null,
-        userId: req.auth.userId,
+        userId: authUserId(req),
       },
     });
     res.status(201).json(serializeTask(task));
@@ -248,15 +260,16 @@ app.patch(
   requireAuth,
   validateBody(taskUpdateSchema),
   asyncRoute(async (req, res) => {
-    const data = { ...req.validatedBody };
-    if ("dueDate" in data) {
-      data.dueDate = data.dueDate ? parseDateOnly(data.dueDate) : null;
-    }
+    const { dueDate, ...rest } = validated(req, taskUpdateSchema);
+    const data = {
+      ...rest,
+      ...(dueDate !== undefined ? { dueDate: dueDate ? parseDateOnly(dueDate) : null } : {}),
+    };
 
     try {
       const task = await prisma.task.update({
         data,
-        where: { id: req.params.id, userId: req.auth.userId },
+        where: { id: req.params.id, userId: authUserId(req) },
       });
       res.json(serializeTask(task));
     } catch (error) {
@@ -274,7 +287,7 @@ app.delete(
   requireAuth,
   asyncRoute(async (req, res) => {
     const result = await prisma.task.deleteMany({
-      where: { id: req.params.id, userId: req.auth.userId },
+      where: { id: req.params.id, userId: authUserId(req) },
     });
 
     if (!result.count) {
@@ -286,11 +299,11 @@ app.delete(
   }),
 );
 
-app.use((req, res) => {
+app.use((req: Request, res: Response) => {
   res.status(404).json({ message: "Rota nao encontrada." });
 });
 
-app.use((error, req, res, next) => {
+app.use((error: unknown, req: Request, res: Response, next: NextFunction) => {
   if (res.headersSent) {
     next(error);
     return;
@@ -307,7 +320,12 @@ app.use((error, req, res, next) => {
     return;
   }
 
-  if (error instanceof SyntaxError && error.status === 400 && "body" in error) {
+  if (
+    error instanceof SyntaxError &&
+    "status" in error &&
+    (error as { status?: number }).status === 400 &&
+    "body" in error
+  ) {
     res.status(400).json({ message: "JSON invalido." });
     return;
   }

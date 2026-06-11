@@ -3,7 +3,7 @@ import { buildFinancialIntelligence } from "../src/finance-intelligence.js";
 
 const now = new Date("2026-06-06T12:00:00.000Z");
 
-function transaction(daysAgo, type, amount, category = "Outros") {
+function transaction(daysAgo: number, type: string, amount: number, category = "Outros") {
   return {
     amount,
     category,
@@ -22,7 +22,7 @@ describe("inteligência financeira", () => {
     expect(result.score.value).toBeGreaterThan(60);
     expect(result.forecast.currentBalance).toBe(2000);
     expect(result.forecast.periods).toHaveLength(3);
-    expect(result.forecast.periods[2].balance).toBeGreaterThan(2000);
+    expect(result.forecast.periods[2]!.balance).toBeGreaterThan(2000);
     expect(result.insights).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: "savings" })]),
     );
@@ -40,7 +40,7 @@ describe("inteligência financeira", () => {
       now,
     );
 
-    expect(result.anomalies[0]).toMatchObject({ category: "Lazer", percentage: 200 });
+    expect(result.anomalies[0]!).toMatchObject({ category: "Lazer", percentage: 200 });
     expect(result.insights).toEqual(
       expect.arrayContaining([expect.objectContaining({ title: "Gasto fora do padrão" })]),
     );
@@ -50,7 +50,7 @@ describe("inteligência financeira", () => {
     const result = buildFinancialIntelligence([], now);
 
     expect(result.score.value).toBe(0);
-    expect(result.forecast.periods[2].balance).toBe(0);
-    expect(result.insights[0].id).toBe("start");
+    expect(result.forecast.periods[2]!.balance).toBe(0);
+    expect(result.insights[0]!.id).toBe("start");
   });
 });

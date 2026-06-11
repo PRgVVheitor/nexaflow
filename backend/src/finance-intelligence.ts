@@ -1,51 +1,82 @@
 const dayMs = 24 * 60 * 60 * 1000;
 
-function roundMoney(value) {
+export interface IntelligenceTransaction {
+  amount: number | string | { toString(): string };
+  category: string;
+  type: string;
+  date?: Date | string | null;
+  createdAt?: Date | string;
+}
+
+interface NormalizedTransaction {
+  amount: number;
+  category: string;
+  type: string;
+  date: Date;
+}
+
+export type RiskLevel = "low" | "medium" | "high";
+
+export interface Anomaly {
+  category: string;
+  current: number;
+  previousAverage: number;
+  percentage: number;
+}
+
+export interface Insight {
+  id: string;
+  type: "info" | "success" | "warning";
+  title: string;
+  message: string;
+}
+
+function roundMoney(value: number) {
   return Math.round(value * 100) / 100;
 }
 
-function clamp(value, minimum, maximum) {
+function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(maximum, Math.max(minimum, value));
 }
 
-function startOfDay(date) {
+function startOfDay(date: Date) {
   const result = new Date(date);
   result.setHours(0, 0, 0, 0);
   return result;
 }
 
-function startOfWeek(date) {
+function startOfWeek(date: Date) {
   const result = startOfDay(date);
   const day = result.getDay() || 7;
   result.setDate(result.getDate() - day + 1);
   return result;
 }
 
-function startOfMonth(date, offset = 0) {
+function startOfMonth(date: Date, offset = 0) {
   return new Date(date.getFullYear(), date.getMonth() + offset, 1);
 }
 
-function totalByType(transactions, type) {
+function totalByType(transactions: NormalizedTransaction[], type: string) {
   return transactions
     .filter((transaction) => transaction.type === type)
-    .reduce((total, transaction) => total + Number(transaction.amount), 0);
+    .reduce((total, transaction) => total + transaction.amount, 0);
 }
 
-function scoreLabel(score) {
+function scoreLabel(score: number) {
   if (score >= 80) return "Excelente";
   if (score >= 65) return "Saudável";
   if (score >= 45) return "Em atenção";
   return "Crítico";
 }
 
-function riskLabel(risk) {
+function riskLabel(risk: RiskLevel) {
   if (risk === "high") return "Alto risco";
   if (risk === "medium") return "Atenção";
   return "Baixo risco";
 }
 
-function categoryLabel(category) {
-  const labels = {
+function categoryLabel(category: string) {
+  const labels: Record<string, string> = {
     Alimentacao: "Alimentação",
     Educacao: "Educação",
     Saude: "Saúde",
@@ -54,17 +85,17 @@ function categoryLabel(category) {
   return labels[category] || category;
 }
 
-function findAnomalies(expenses, now) {
+function findAnomalies(expenses: NormalizedTransaction[], now: Date): Anomaly[] {
   const currentWeekStart = startOfWeek(now);
   const previousWindowStart = new Date(currentWeekStart.getTime() - 28 * dayMs);
-  const categoryTotals = new Map();
+  const categoryTotals = new Map<string, { current: number; previous: number }>();
 
   for (const expense of expenses) {
     const date = expense.date;
     if (date < previousWindowStart) continue;
     const totals = categoryTotals.get(expense.category) || { current: 0, previous: 0 };
-    if (date >= currentWeekStart) totals.current += Number(expense.amount);
-    else totals.previous += Number(expense.amount);
+    if (date >= currentWeekStart) totals.current += expense.amount;
+    else totals.previous += expense.amount;
     categoryTotals.set(expense.category, totals);
   }
 
@@ -82,18 +113,24 @@ function findAnomalies(expenses, now) {
         category,
         current: roundMoney(totals.current),
         previousAverage: roundMoney(previousWeeklyAverage),
-        percentage: Math.round(((totals.current - previousWeeklyAverage) / previousWeeklyAverage) * 100),
+        percentage: Math.round(
+          ((totals.current - previousWeeklyAverage) / previousWeeklyAverage) * 100,
+        ),
       };
     })
-    .filter(Boolean)
+    .filter((anomaly): anomaly is Anomaly => anomaly !== null)
     .sort((a, b) => b.percentage - a.percentage);
 }
 
-export function buildFinancialIntelligence(transactions, now = new Date()) {
-  const normalized = transactions.map((transaction) => ({
-    ...transaction,
+export function buildFinancialIntelligence(
+  transactions: IntelligenceTransaction[],
+  now = new Date(),
+) {
+  const normalized: NormalizedTransaction[] = transactions.map((transaction) => ({
+    category: transaction.category,
+    type: transaction.type,
     amount: Number(transaction.amount),
-    date: new Date(transaction.date ?? transaction.createdAt),
+    date: new Date(transaction.date ?? transaction.createdAt ?? now),
   }));
   const income = totalByType(normalized, "income");
   const expense = totalByType(normalized, "expense");
@@ -103,21 +140,21 @@ export function buildFinancialIntelligence(transactions, now = new Date()) {
   const recentIncome = totalByType(recent, "income");
   const recentExpense = totalByType(recent, "expense");
   const recentNet = recentIncome - recentExpense;
-  const earliestRecent = recent.reduce(
+  const earliestRecent = recent.reduce<Date | null>(
     (earliest, transaction) =>
       !earliest || transaction.date < earliest ? transaction.date : earliest,
     null,
   );
   const observedDays = earliestRecent
-    ? clamp(Math.ceil((now - earliestRecent) / dayMs) + 1, 7, 30)
+    ? clamp(Math.ceil((now.getTime() - earliestRecent.getTime()) / dayMs) + 1, 7, 30)
     : 30;
   const dailyNet = recentNet / observedDays;
   const forecastDays = [7, 15, 30].map((days) => ({
     days,
     balance: roundMoney(currentBalance + dailyNet * days),
   }));
-  const risk =
-    forecastDays[0].balance < 0 ? "high" : forecastDays[2].balance < 0 ? "medium" : "low";
+  const risk: RiskLevel =
+    forecastDays[0]!.balance < 0 ? "high" : forecastDays[2]!.balance < 0 ? "medium" : "low";
 
   const savingsRate = recentIncome ? (recentNet / recentIncome) * 100 : 0;
   const savingsPoints = recentIncome ? clamp(Math.round((savingsRate + 10) * 0.8), 0, 40) : 0;
@@ -152,12 +189,12 @@ export function buildFinancialIntelligence(transactions, now = new Date()) {
 
   const expenses = normalized.filter((transaction) => transaction.type === "expense");
   const anomalies = findAnomalies(expenses, now);
-  const categoryTotals = expenses.reduce((totals, transaction) => {
+  const categoryTotals = expenses.reduce<Record<string, number>>((totals, transaction) => {
     totals[transaction.category] = (totals[transaction.category] || 0) + transaction.amount;
     return totals;
   }, {});
   const topCategory = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1])[0];
-  const insights = [];
+  const insights: Insight[] = [];
 
   if (!normalized.length) {
     insights.push({
@@ -188,14 +225,14 @@ export function buildFinancialIntelligence(transactions, now = new Date()) {
         id: "negative-risk",
         type: "warning",
         title: riskLabel(risk),
-        message: `Mantendo o ritmo atual, seu saldo projetado para 30 dias é R$ ${forecastDays[2].balance.toFixed(2)}.`,
+        message: `Mantendo o ritmo atual, seu saldo projetado para 30 dias é R$ ${forecastDays[2]!.balance.toFixed(2)}.`,
       });
     } else {
       insights.push({
         id: "forecast",
         type: "success",
         title: "Projeção positiva",
-        message: `Mantendo o ritmo atual, seu saldo projetado para 30 dias é R$ ${forecastDays[2].balance.toFixed(2)}.`,
+        message: `Mantendo o ritmo atual, seu saldo projetado para 30 dias é R$ ${forecastDays[2]!.balance.toFixed(2)}.`,
       });
     }
 

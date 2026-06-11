@@ -7,8 +7,8 @@ import { envSchema } from "../src/env.js";
 const testPrefix = `ci-${Date.now()}`;
 const email = `${testPrefix}@example.com`;
 const password = "senha-segura-123";
-let token;
-let user;
+let token: string;
+let user: { id: string; name: string; email: string };
 
 beforeAll(async () => {
   await prisma.$connect();
@@ -26,7 +26,11 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-function authenticated(method, path, authToken = token) {
+function authenticated(
+  method: "get" | "post" | "patch" | "delete",
+  path: string,
+  authToken = token,
+) {
   return request(app)[method](path).set("Authorization", `Bearer ${authToken}`);
 }
 
@@ -130,7 +134,7 @@ describe("NexaFlow API", () => {
     });
 
     const listed = await authenticated("get", "/api/transactions");
-    expect(listed.body.some((transaction) => transaction.id === created.body.id)).toBe(true);
+    expect(listed.body.some((transaction: { id: string }) => transaction.id === created.body.id)).toBe(true);
 
     const edited = await authenticated("patch", `/api/transactions/${created.body.id}`).send({
       description: `${description}-editada`,
@@ -277,7 +281,7 @@ describe("NexaFlow API", () => {
       });
     }
 
-    expect(response.status).toBe(429);
-    expect(response.body.message).toContain("Muitas tentativas");
+    expect(response!.status).toBe(429);
+    expect(response!.body.message).toContain("Muitas tentativas");
   });
 });

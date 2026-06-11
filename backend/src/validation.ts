@@ -1,6 +1,7 @@
+import type { NextFunction, Request, Response } from "express";
 import { z } from "zod";
 
-const trimmedText = (minimum, maximum) =>
+const trimmedText = (minimum: number, maximum: number) =>
   z.string().trim().min(minimum).max(maximum);
 
 const password = z
@@ -79,8 +80,8 @@ export const taskUpdateSchema = z
   .strict()
   .refine((data) => Object.keys(data).length > 0, "Informe ao menos um campo para atualizar.");
 
-export function validateBody(schema) {
-  return (req, res, next) => {
+export function validateBody<Schema extends z.ZodType>(schema: Schema) {
+  return (req: Request, res: Response, next: NextFunction) => {
     try {
       req.validatedBody = schema.parse(req.body);
       next();
