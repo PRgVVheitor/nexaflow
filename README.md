@@ -33,14 +33,19 @@ Mostrar no GitHub um produto com separação clara entre front-end e back-end, c
 - Vitest
 - Testing Library
 - Supertest
+- Playwright
 - ESLint
 - GitHub Actions
-- JavaScript
+- TypeScript
 
 ## Funcionalidades
 
 - Landing page pública com hero, recursos e CTA, com login em rota própria (`/login`).
 - Rotas principais com code splitting (React.lazy) para reduzir o bundle inicial.
+- Modo claro/escuro com persistência da preferência.
+- Metas de gastos por categoria com barra de progresso e alertas de limite.
+- Transações recorrentes (salário, aluguel, assinaturas) lançadas automaticamente todo mês.
+- Comparação mensal em onda: saldo acumulado dia a dia de dois meses lado a lado.
 - Dashboard financeiro responsivo com gráfico de ondas comparando períodos, barras horizontais de gastos por categoria, indicadores de saldo, entradas e saídas, seleção e comparação mensal.
 - Mikal, assistente financeiro flutuante com perguntas rápidas e respostas calculadas a partir dos dados da conta.
 - Inteligência Financeira V1 com Nexa Score explicável, previsão de saldo em 7, 15 e 30 dias, alertas de anomalias e feed de insights.
@@ -196,13 +201,18 @@ Para verificar o lint dos dois pacotes:
 npm run lint
 ```
 
-Os testes do backend validam autenticação, isolamento entre usuários e rotas HTTP contra PostgreSQL real. Os testes do frontend verificam login, cadastro, carregamento do dashboard e navegação para o Taskly com uma API simulada.
+Os testes do backend validam autenticação, isolamento entre usuários, recorrências e rotas HTTP contra PostgreSQL real. Os testes do frontend verificam login, cadastro, dashboard, metas, recorrências e navegação com uma API simulada.
 
-O workflow `.github/workflows/ci.yml` cria um PostgreSQL temporário e executa lint, migrations, testes e build automaticamente em cada push e pull request.
+Para o teste end-to-end (Playwright, usa o modo demonstrativo e não precisa de API):
+
+```bash
+cd frontend
+npm run test:e2e
+```
+
+O workflow `.github/workflows/ci.yml` cria um PostgreSQL temporário e executa lint, type-check, migrations, testes, build e E2E automaticamente em cada push e pull request.
 
 ## Próximas melhorias
 
 - Publicar o frontend e conectar ao backend hospedado.
 - Paginação e filtros de período direto na API de transações.
-- Migração incremental para TypeScript.
-- Testes end-to-end com Playwright.
