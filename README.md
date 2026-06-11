@@ -39,6 +39,8 @@ Mostrar no GitHub um produto com separação clara entre front-end e back-end, c
 
 ## Funcionalidades
 
+- Landing page pública com hero, recursos e CTA, com login em rota própria (`/login`).
+- Rotas principais com code splitting (React.lazy) para reduzir o bundle inicial.
 - Dashboard financeiro responsivo com gráfico de ondas comparando períodos, barras horizontais de gastos por categoria, indicadores de saldo, entradas e saídas, seleção e comparação mensal.
 - Mikal, assistente financeiro flutuante com perguntas rápidas e respostas calculadas a partir dos dados da conta.
 - Inteligência Financeira V1 com Nexa Score explicável, previsão de saldo em 7, 15 e 30 dias, alertas de anomalias e feed de insights.
