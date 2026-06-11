@@ -419,7 +419,7 @@ export function FinanceDashboard() {
       <div className="flex flex-col gap-3 border-y border-zinc-800 py-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-sm font-semibold text-zinc-100">Período da análise</p>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-zinc-400">
             Totais, gráficos, tabela e exportação acompanham este filtro.
           </p>
         </div>
@@ -660,7 +660,7 @@ export function FinanceDashboard() {
               initial={{ opacity: 0 }}
               key="evolution"
             >
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-zinc-500">
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-zinc-400">
                 <span className="flex items-center gap-2">
                   <span className="h-0.5 w-5 rounded-full bg-emerald-400" />
                   Período atual
@@ -774,7 +774,7 @@ export function FinanceDashboard() {
             <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_180px_auto]">
               <div className="relative">
                 <Search
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500"
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
                   size={16}
                 />
                 <Input

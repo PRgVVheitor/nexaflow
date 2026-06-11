@@ -101,7 +101,7 @@ export function AuthScreen({ onAuthenticated }) {
                 <ShieldCheck className="mt-0.5 shrink-0 text-emerald-300" size={18} />
                 <div>
                   <p className="text-sm font-semibold text-zinc-100">{title}</p>
-                  <p className="mt-1 text-xs leading-5 text-zinc-500">{description}</p>
+                  <p className="mt-1 text-xs leading-5 text-zinc-400">{description}</p>
                 </div>
               </div>
             ))}
@@ -116,7 +116,7 @@ export function AuthScreen({ onAuthenticated }) {
             <h2 className="mt-2 text-2xl font-bold text-zinc-50">
               {isRegister ? "Crie seu acesso" : "Entre no NexaFlow"}
             </h2>
-            <p className="mt-2 text-sm leading-6 text-zinc-500">
+            <p className="mt-2 text-sm leading-6 text-zinc-400">
               {isRegister
                 ? "Seus dados ficarão separados e protegidos."
                 : "Continue de onde parou em poucos segundos."}
@@ -157,6 +157,7 @@ export function AuthScreen({ onAuthenticated }) {
               />
               <Button
                 aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                aria-pressed={showPassword}
                 className="absolute right-0 top-0"
                 size="icon"
                 type="button"

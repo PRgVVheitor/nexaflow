@@ -45,7 +45,7 @@ export function FinancialIntelligencePanel({ intelligence, loading }) {
           <h2 className="text-base font-semibold text-zinc-50" id="financial-intelligence-title">
             Inteligência financeira
           </h2>
-          <p className="text-xs text-zinc-500">Análises calculadas a partir dos seus movimentos.</p>
+          <p className="text-xs text-zinc-400">Análises calculadas a partir dos seus movimentos.</p>
         </div>
       </div>
 
@@ -77,7 +77,7 @@ export function FinancialIntelligencePanel({ intelligence, loading }) {
                 <p className={cn("text-lg font-bold", scoreTone.text)}>
                   {intelligence.score.label}
                 </p>
-                <p className="mt-1 text-xs leading-5 text-zinc-500">
+                <p className="mt-1 text-xs leading-5 text-zinc-400">
                   Economia, saldo, controle de gastos e consistência.
                 </p>
               </div>
@@ -90,7 +90,7 @@ export function FinancialIntelligencePanel({ intelligence, loading }) {
                 ["Consistência", intelligence.score.components.consistency, 20],
               ].map(([label, value, maximum]) => (
                 <div className="rounded-md border border-zinc-800 bg-zinc-950/35 px-2.5 py-2" key={label}>
-                  <span className="text-zinc-500">{label}</span>
+                  <span className="text-zinc-400">{label}</span>
                   <strong className="float-right text-zinc-200">
                     {value}/{maximum}
                   </strong>
@@ -117,17 +117,17 @@ export function FinancialIntelligencePanel({ intelligence, loading }) {
                 key={period.days}
               >
                 <div>
-                  <p className="text-xs font-semibold uppercase text-zinc-500">
+                  <p className="text-xs font-semibold uppercase text-zinc-400">
                     Em {period.days} dias
                   </p>
-                  <p className="mt-1 text-xs text-zinc-600">Mantendo o ritmo atual</p>
+                  <p className="mt-1 text-xs text-zinc-400">Mantendo o ritmo atual</p>
                 </div>
                 <strong className={period.balance >= 0 ? "text-emerald-300" : "text-rose-300"}>
                   {currency.format(period.balance)}
                 </strong>
               </div>
             ))}
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-zinc-400">
               Ritmo diário estimado:{" "}
               <span className={intelligence.forecast.dailyNet >= 0 ? "text-emerald-300" : "text-rose-300"}>
                 {currency.format(intelligence.forecast.dailyNet)}
@@ -153,7 +153,7 @@ export function FinancialIntelligencePanel({ intelligence, loading }) {
                 <InsightIcon type={insight.type} />
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-zinc-100">{insight.title}</p>
-                  <p className="mt-1 text-xs leading-5 text-zinc-500">{insight.message}</p>
+                  <p className="mt-1 text-xs leading-5 text-zinc-400">{insight.message}</p>
                 </div>
               </div>
             ))}

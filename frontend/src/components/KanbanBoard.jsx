@@ -34,7 +34,7 @@ export function KanbanBoard({ onDelete, onEdit, onToggle, tasks }) {
           <div className="mb-3 flex items-start justify-between gap-3 border-b border-zinc-800 pb-3">
             <div>
               <h3 className={cn("text-sm font-semibold", column.tone)}>{column.title}</h3>
-              <p className="mt-1 text-xs text-zinc-500">{column.description}</p>
+              <p className="mt-1 text-xs text-zinc-400">{column.description}</p>
             </div>
             <Badge variant="neutral">{column.tasks.length}</Badge>
           </div>
@@ -46,7 +46,7 @@ export function KanbanBoard({ onDelete, onEdit, onToggle, tasks }) {
                 key={task.id}
                 layout
               >
-                <p className={cn("text-sm font-semibold text-zinc-100", task.done && "line-through text-zinc-500")}>
+                <p className={cn("text-sm font-semibold text-zinc-100", task.done && "line-through text-zinc-400")}>
                   {task.title}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">

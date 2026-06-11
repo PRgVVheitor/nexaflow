@@ -21,7 +21,7 @@ export function DatePicker({ label, onChange, value }) {
         onClick={() => setOpen((current) => !current)}
       >
         <CalendarDays className="text-emerald-300" size={16} />
-        <span className={cn(!selected && "text-zinc-500")}>
+        <span className={cn(!selected && "text-zinc-400")}>
           {selected ? format(selected, "dd/MM/yyyy") : "Selecionar data"}
         </span>
       </Button>
@@ -44,7 +44,7 @@ export function DatePicker({ label, onChange, value }) {
               selected: "[&>button]:bg-emerald-400 [&>button]:font-bold [&>button]:text-zinc-950",
               today: "[&>button]:border [&>button]:border-emerald-400/60 [&>button]:text-emerald-300",
               week: "grid grid-cols-7",
-              weekday: "py-1 text-center text-[11px] font-medium uppercase text-zinc-500",
+              weekday: "py-1 text-center text-[11px] font-medium uppercase text-zinc-400",
               weekdays: "grid grid-cols-7",
             }}
             locale={ptBR}

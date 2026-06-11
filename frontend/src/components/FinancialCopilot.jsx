@@ -5,17 +5,19 @@ import { buildCopilotResponse } from "../lib/copilot";
 import { cn } from "../lib/utils";
 import { Button, Input } from "./ui";
 
+const initialMessage = {
+  id: "welcome",
+  role: "assistant",
+  text: "Olá! Eu sou o Mikal, seu assistente financeiro. Posso analisar seu saldo, gastos e projeções.",
+};
+
+const suggestions = [
+  "Por que gastei mais?",
+  "Quanto posso gastar este fim de semana?",
+  "Qual meu saldo em 30 dias?",
+];
+
 export function FinancialCopilot({ intelligence, totals, transactions }) {
-  const initialMessage = {
-    id: "welcome",
-    role: "assistant",
-    text: "Olá! Eu sou o Mikal, seu assistente financeiro. Posso analisar seu saldo, gastos e projeções.",
-  };
-  const suggestions = [
-    "Por que gastei mais?",
-    "Quanto posso gastar este fim de semana?",
-    "Qual meu saldo em 30 dias?",
-  ];
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([initialMessage]);
@@ -139,7 +141,7 @@ export function FinancialCopilot({ intelligence, totals, transactions }) {
                   <Send size={17} />
                 </Button>
               </form>
-              <p className="mt-2 text-[11px] text-zinc-600">
+              <p className="mt-2 text-[11px] text-zinc-400">
                 Respostas calculadas a partir dos dados disponíveis no NexaFlow.
               </p>
             </div>

@@ -21,7 +21,7 @@ export function MetricCard({ detail, icon: Icon, index, title, tone, value }) {
           <div className="min-w-0">
             <p className="text-sm font-medium text-zinc-400">{title}</p>
             <p className="mt-2 truncate text-2xl font-bold text-zinc-50">{value}</p>
-            <p className="mt-1 text-xs text-zinc-500">{detail}</p>
+            <p className="mt-1 text-xs text-zinc-400">{detail}</p>
           </div>
           <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-lg", tones[tone])}>
             <Icon size={19} />

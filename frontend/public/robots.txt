@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /financas
+Disallow: /taskly
+
+Sitemap: https://nexaflow.app/sitemap.xml

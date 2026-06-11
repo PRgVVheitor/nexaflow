@@ -292,6 +292,7 @@ export function TasksApp() {
                 role="group"
               >
                 <Button
+                  aria-label="Ver tarefas em lista"
                   aria-pressed={viewMode === "list"}
                   className={cn(viewMode === "list" && "bg-zinc-700 text-zinc-50")}
                   size="icon"
@@ -303,6 +304,7 @@ export function TasksApp() {
                   <List size={17} />
                 </Button>
                 <Button
+                  aria-label="Ver tarefas em quadro Kanban"
                   aria-pressed={viewMode === "board"}
                   className={cn(viewMode === "board" && "bg-zinc-700 text-zinc-50")}
                   size="icon"
@@ -406,7 +408,7 @@ export function TasksApp() {
                         <p
                           className={cn(
                             "truncate text-sm font-semibold text-zinc-100",
-                            task.done && "text-zinc-500 line-through",
+                            task.done && "text-zinc-400 line-through",
                           )}
                         >
                           {task.title}

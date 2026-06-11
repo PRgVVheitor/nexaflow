@@ -72,7 +72,7 @@ export const Input = forwardRef(function Input({ className, ...props }, ref) {
   return (
     <input
       className={cn(
-        "h-10 w-full rounded-md border border-zinc-700 bg-zinc-950/60 px-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/15 aria-[invalid=true]:border-red-400 aria-[invalid=true]:focus:border-red-400 aria-[invalid=true]:focus:ring-red-400/15",
+        "h-10 w-full rounded-md border border-zinc-700 bg-zinc-950/60 px-3 text-sm text-zinc-100 outline-none placeholder:text-zinc-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/15 aria-[invalid=true]:border-red-400 aria-[invalid=true]:focus:border-red-400 aria-[invalid=true]:focus:ring-red-400/15",
         className,
       )}
       ref={ref}
@@ -148,7 +148,7 @@ export function TableHead({ className, ...props }) {
   return (
     <th
       className={cn(
-        "h-11 px-3 text-left text-xs font-semibold uppercase text-zinc-500",
+        "h-11 px-3 text-left text-xs font-semibold uppercase text-zinc-400",
         className,
       )}
       {...props}

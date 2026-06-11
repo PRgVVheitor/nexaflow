@@ -22,7 +22,7 @@ export function TaskStatCard({ detail, index, progress, title, tone, value }) {
           <div>
             <p className="text-sm font-medium text-zinc-400">{title}</p>
             <p className={cn("mt-1 text-4xl font-bold", selectedTone.text)}>{value}</p>
-            <p className="mt-1 text-xs text-zinc-500">{detail}</p>
+            <p className="mt-1 text-xs text-zinc-400">{detail}</p>
           </div>
           <div
             aria-label={`${roundedProgress}% ${title.toLowerCase()}`}
