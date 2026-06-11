@@ -1,15 +1,21 @@
-import type { ApiUser, Goal, Intelligence, Task, Transaction } from "./lib/types";
+import type { ApiUser, Goal, Intelligence, RecurringTransaction, Task, Transaction } from "./lib/types";
 
 export const demoModeKey = "nexaflow-demo-mode";
 export const demoStoreKey = "nexaflow-demo-store";
 export const demoToken = "demo-local-token";
-const demoVersion = "4";
+const demoVersion = "5";
 const demoVersionKey = "nexaflow-demo-version";
+
+interface DemoRecurring extends RecurringTransaction {
+  lastRunMonth: string | null;
+  createdAt: string;
+}
 
 interface DemoStore {
   transactions: Transaction[];
   tasks: Task[];
   goals: Goal[];
+  recurring: DemoRecurring[];
 }
 
 const demoUser: ApiUser = {
@@ -130,6 +136,19 @@ function createDemoStore(): DemoStore {
       ...transaction,
       date: transaction.createdAt.slice(0, 10),
     })),
+    recurring: [
+      {
+        id: "demo-rec-1",
+        description: "Assinatura de streaming",
+        category: "Lazer",
+        type: "expense" as const,
+        amount: 39.9,
+        dayOfMonth: 8,
+        active: true,
+        lastRunMonth: null,
+        createdAt: now.toISOString(),
+      },
+    ],
     goals: [
       { id: "demo-goal-1", category: "Alimentacao", monthlyLimit: 800 },
       { id: "demo-goal-2", category: "Moradia", monthlyLimit: 1500 },
@@ -261,13 +280,102 @@ export function activateDemoMode() {
   return { token: demoToken, user: demoUser };
 }
 
+function pad2(value: number) {
+  return String(value).padStart(2, "0");
+}
+
+function parseMonthKey(key: string): [number, number] {
+  const [year, month] = key.split("-").map(Number);
+  return [year!, month!];
+}
+
+function nextMonthKey(key: string) {
+  const [year, month] = parseMonthKey(key);
+  return month === 12 ? `${year + 1}-01` : `${year}-${pad2(month + 1)}`;
+}
+
+function materializeDemoRecurring(store: DemoStore) {
+  const now = new Date();
+  const currentKey = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}`;
+  let changed = false;
+
+  for (const recurrence of store.recurring) {
+    if (!recurrence.active) continue;
+    const createdAt = new Date(recurrence.createdAt);
+    let cursor = recurrence.lastRunMonth
+      ? nextMonthKey(recurrence.lastRunMonth)
+      : `${createdAt.getFullYear()}-${pad2(createdAt.getMonth() + 1)}`;
+
+    while (cursor <= currentKey) {
+      const [year, month] = parseMonthKey(cursor);
+      const lastDay = new Date(year, month, 0).getDate();
+      const day = Math.min(recurrence.dayOfMonth, lastDay);
+      const due = new Date(year, month - 1, day);
+      if (due > now) break;
+
+      store.transactions.unshift({
+        id: `demo-tx-rec-${recurrence.id}-${cursor}`,
+        description: recurrence.description,
+        category: recurrence.category,
+        type: recurrence.type,
+        amount: recurrence.amount,
+        date: `${cursor}-${pad2(day)}`,
+        createdAt: new Date().toISOString(),
+      });
+      recurrence.lastRunMonth = cursor;
+      cursor = nextMonthKey(cursor);
+      changed = true;
+    }
+  }
+
+  if (changed) writeDemoStore(store);
+}
+
 export function demoApi(path: string, options: RequestInit = {}): unknown {
   const method = options.method || "GET";
   const store = readDemoStore();
   const body = options.body ? (JSON.parse(String(options.body)) as Record<string, unknown>) : {};
 
   if (path === "/api/auth/me") return { user: demoUser };
-  if (path === "/api/transactions" && method === "GET") return store.transactions;
+  if (path === "/api/transactions" && method === "GET") {
+    materializeDemoRecurring(store);
+    return store.transactions;
+  }
+  if (path === "/api/recurring" && method === "GET") return store.recurring;
+
+  if (path === "/api/recurring" && method === "POST") {
+    const recurrence: DemoRecurring = {
+      id: `demo-rec-${Date.now()}`,
+      description: String(body.description),
+      category: String(body.category),
+      type: body.type as Transaction["type"],
+      amount: Number(body.amount),
+      dayOfMonth: Number(body.dayOfMonth),
+      active: true,
+      lastRunMonth: null,
+      createdAt: new Date().toISOString(),
+    };
+    store.recurring.unshift(recurrence);
+    materializeDemoRecurring(store);
+    writeDemoStore(store);
+    return recurrence;
+  }
+
+  const recurringMatch = path.match(/^\/api\/recurring\/(.+)$/);
+  if (recurringMatch) {
+    const index = store.recurring.findIndex((item) => item.id === recurringMatch[1]);
+    if (index < 0) throw new Error("Recorrência demonstrativa não encontrada.");
+    if (method === "DELETE") {
+      store.recurring.splice(index, 1);
+      writeDemoStore(store);
+      return null;
+    }
+    if (method === "PATCH") {
+      store.recurring[index] = { ...store.recurring[index]!, ...body };
+      writeDemoStore(store);
+      return store.recurring[index];
+    }
+  }
   if (path === "/api/finance/intelligence") return buildDemoIntelligence(store.transactions);
   if (path === "/api/tasks" && method === "GET") return store.tasks;
   if (path === "/api/goals" && method === "GET") return store.goals;

@@ -220,6 +220,47 @@ describe("NexaFlow API", () => {
     expect(removed.status).toBe(204);
   });
 
+  it("materializa recorrencias sem duplicar lancamentos", async () => {
+    const today = new Date();
+    const created = await authenticated("post", "/api/recurring").send({
+      description: `${testPrefix}-recorrencia`,
+      category: "Moradia",
+      type: "expense",
+      amount: 999.99,
+      dayOfMonth: today.getUTCDate(),
+    });
+
+    expect(created.status).toBe(201);
+    expect(created.body).toMatchObject({
+      description: `${testPrefix}-recorrencia`,
+      dayOfMonth: today.getUTCDate(),
+      active: true,
+    });
+
+    const firstList = await authenticated("get", "/api/transactions");
+    const firstMatches = firstList.body.filter(
+      (transaction: { description: string }) =>
+        transaction.description === `${testPrefix}-recorrencia`,
+    );
+    expect(firstMatches).toHaveLength(1);
+    expect(firstMatches[0].amount).toBe(999.99);
+
+    const secondList = await authenticated("get", "/api/transactions");
+    const secondMatches = secondList.body.filter(
+      (transaction: { description: string }) =>
+        transaction.description === `${testPrefix}-recorrencia`,
+    );
+    expect(secondMatches).toHaveLength(1);
+
+    const paused = await authenticated("patch", `/api/recurring/${created.body.id}`).send({
+      active: false,
+    });
+    expect(paused.status).toBe(200);
+    expect(paused.body.active).toBe(false);
+
+    const removed = await authenticated("delete", `/api/recurring/${created.body.id}`);
+    expect(removed.status).toBe(204);
+  });
   it("cria, atualiza, lista e remove uma meta de gastos", async () => {
     const created = await authenticated("post", "/api/goals").send({
       category: "Lazer",

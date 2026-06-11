@@ -44,6 +44,7 @@ import { FinancialIntelligencePanel } from "../components/FinancialIntelligenceP
 import { GoalsPanel } from "../components/GoalsPanel";
 import { MetricCard } from "../components/MetricCard";
 import { PageHeading } from "../components/PageHeading";
+import { RecurringPanel, type RecurringFormValues } from "../components/RecurringPanel";
 import { ChartSkeleton, MetricSkeleton, TableSkeleton } from "../components/skeletons";
 import { TransactionForm } from "../components/TransactionForm";
 import {
@@ -83,7 +84,14 @@ import {
   shortMonth,
 } from "../lib/format";
 import { transactionFormSchema, type TransactionFormValues } from "../lib/schemas";
-import type { Goal, Intelligence, Totals, Transaction, TransactionType } from "../lib/types";
+import type {
+  Goal,
+  Intelligence,
+  RecurringTransaction,
+  Totals,
+  Transaction,
+  TransactionType,
+} from "../lib/types";
 import { cn } from "../lib/utils";
 
 interface MonthSummary {
@@ -132,6 +140,7 @@ export function FinanceDashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [intelligence, setIntelligence] = useState<Intelligence | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [recurrences, setRecurrences] = useState<RecurringTransaction[]>([]);
   const [intelligenceLoading, setIntelligenceLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -152,11 +161,13 @@ export function FinanceDashboard() {
     setIntelligenceLoading(true);
     setError("");
     try {
-      const [transactionsResult, intelligenceResult, goalsResult] = await Promise.allSettled([
-        api<Transaction[]>("/api/transactions"),
-        api<Intelligence>("/api/finance/intelligence"),
-        api<Goal[]>("/api/goals"),
-      ]);
+      const [transactionsResult, intelligenceResult, goalsResult, recurringResult] =
+        await Promise.allSettled([
+          api<Transaction[]>("/api/transactions"),
+          api<Intelligence>("/api/finance/intelligence"),
+          api<Goal[]>("/api/goals"),
+          api<RecurringTransaction[]>("/api/recurring"),
+        ]);
       if (transactionsResult.status === "rejected") throw transactionsResult.reason;
       setTransactions(transactionsResult.value);
       if (intelligenceResult.status === "fulfilled") {
@@ -164,6 +175,9 @@ export function FinanceDashboard() {
       }
       if (goalsResult.status === "fulfilled") {
         setGoals(goalsResult.value);
+      }
+      if (recurringResult.status === "fulfilled") {
+        setRecurrences(recurringResult.value);
       }
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Erro na API.");
@@ -372,6 +386,47 @@ export function FinanceDashboard() {
       await api(`/api/goals/${id}`, { method: "DELETE" });
       setGoals((current) => current.filter((goal) => goal.id !== id));
       toast.success("Meta removida.");
+    } catch (requestError) {
+      toast.error(requestError instanceof Error ? requestError.message : "Erro na API.");
+    }
+  }
+
+  async function createRecurrence(data: RecurringFormValues) {
+    try {
+      await api<RecurringTransaction>("/api/recurring", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      toast.success("Recorrência criada.");
+      await loadTransactions();
+      return true;
+    } catch (requestError) {
+      toast.error(requestError instanceof Error ? requestError.message : "Erro na API.");
+      return false;
+    }
+  }
+
+  async function toggleRecurrence(recurrence: RecurringTransaction) {
+    try {
+      const updated = await api<RecurringTransaction>(`/api/recurring/${recurrence.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ active: !recurrence.active }),
+      });
+      setRecurrences((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      );
+      toast.success(updated.active ? "Recorrência reativada." : "Recorrência pausada.");
+      if (updated.active) await loadTransactions();
+    } catch (requestError) {
+      toast.error(requestError instanceof Error ? requestError.message : "Erro na API.");
+    }
+  }
+
+  async function deleteRecurrence(id: string) {
+    try {
+      await api(`/api/recurring/${id}`, { method: "DELETE" });
+      setRecurrences((current) => current.filter((item) => item.id !== id));
+      toast.success("Recorrência removida.");
     } catch (requestError) {
       toast.error(requestError instanceof Error ? requestError.message : "Erro na API.");
     }
@@ -1182,6 +1237,14 @@ export function FinanceDashboard() {
 
         <TransactionForm onCreate={createTransaction} />
       </div>
+
+      <RecurringPanel
+        loading={loading}
+        recurrences={recurrences}
+        onCreate={createRecurrence}
+        onDelete={deleteRecurrence}
+        onToggle={toggleRecurrence}
+      />
 
       <FinancialCopilot
         intelligence={intelligence}

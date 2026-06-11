@@ -62,6 +62,28 @@ export const transactionUpdateSchema = transactionSchema
   .partial()
   .refine((data) => Object.keys(data).length > 0, "Informe ao menos um campo para atualizar.");
 
+export const recurringSchema = z
+  .object({
+    amount: z.coerce.number().finite().positive().max(9999999999.99),
+    category: transactionCategory,
+    dayOfMonth: z.coerce.number().int().min(1).max(31),
+    description: trimmedText(1, 120),
+    type: z.enum(["income", "expense"]),
+  })
+  .strict();
+
+export const recurringUpdateSchema = z
+  .object({
+    active: z.boolean().optional(),
+    amount: z.coerce.number().finite().positive().max(9999999999.99).optional(),
+    category: transactionCategory.optional(),
+    dayOfMonth: z.coerce.number().int().min(1).max(31).optional(),
+    description: trimmedText(1, 120).optional(),
+    type: z.enum(["income", "expense"]).optional(),
+  })
+  .strict()
+  .refine((data) => Object.keys(data).length > 0, "Informe ao menos um campo para atualizar.");
+
 export const goalSchema = z
   .object({
     category: transactionCategory,

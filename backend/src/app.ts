@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import type { Goal, Task, Transaction } from "@prisma/client";
+import type { Goal, RecurringTransaction, Task, Transaction } from "@prisma/client";
 import cors from "cors";
 import express from "express";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
@@ -16,9 +16,12 @@ import {
 import { prisma } from "./db.js";
 import { env } from "./env.js";
 import { buildFinancialIntelligence } from "./finance-intelligence.js";
+import { materializeRecurring } from "./recurring.js";
 import {
   goalSchema,
   loginSchema,
+  recurringSchema,
+  recurringUpdateSchema,
   registerSchema,
   taskSchema,
   taskUpdateSchema,
@@ -70,6 +73,10 @@ function serializeTransaction(transaction: Transaction) {
 
 function serializeGoal(goal: Goal) {
   return { ...goal, monthlyLimit: Number(goal.monthlyLimit) };
+}
+
+function serializeRecurring(recurrence: RecurringTransaction) {
+  return { ...recurrence, amount: Number(recurrence.amount) };
 }
 
 function serializeTask(task: Task) {
@@ -149,6 +156,7 @@ app.get(
   "/api/transactions",
   requireAuth,
   asyncRoute(async (req, res) => {
+    await materializeRecurring(authUserId(req));
     const transactions = await prisma.transaction.findMany({
       where: { userId: authUserId(req) },
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
@@ -161,11 +169,78 @@ app.get(
   "/api/finance/intelligence",
   requireAuth,
   asyncRoute(async (req, res) => {
+    await materializeRecurring(authUserId(req));
     const transactions = await prisma.transaction.findMany({
       where: { userId: authUserId(req) },
       orderBy: [{ date: "asc" }, { createdAt: "asc" }],
     });
     res.json(buildFinancialIntelligence(transactions));
+  }),
+);
+
+app.get(
+  "/api/recurring",
+  requireAuth,
+  asyncRoute(async (req, res) => {
+    const recurrences = await prisma.recurringTransaction.findMany({
+      where: { userId: authUserId(req) },
+      orderBy: { createdAt: "desc" },
+    });
+    res.json(recurrences.map(serializeRecurring));
+  }),
+);
+
+app.post(
+  "/api/recurring",
+  requireAuth,
+  validateBody(recurringSchema),
+  asyncRoute(async (req, res) => {
+    const data = validated(req, recurringSchema);
+    const recurrence = await prisma.recurringTransaction.create({
+      data: { ...data, userId: authUserId(req) },
+    });
+    await materializeRecurring(authUserId(req));
+    res.status(201).json(serializeRecurring(recurrence));
+  }),
+);
+
+app.patch(
+  "/api/recurring/:id",
+  requireAuth,
+  validateBody(recurringUpdateSchema),
+  asyncRoute(async (req, res) => {
+    const data = validated(req, recurringUpdateSchema);
+
+    try {
+      const recurrence = await prisma.recurringTransaction.update({
+        data,
+        where: { id: req.params.id, userId: authUserId(req) },
+      });
+      res.json(serializeRecurring(recurrence));
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+        res.status(404).json({ message: "Recorrencia nao encontrada." });
+        return;
+      }
+      throw error;
+    }
+  }),
+);
+
+app.delete(
+  "/api/recurring/:id",
+  requireAuth,
+  asyncRoute(async (req, res) => {
+    const result = await prisma.recurringTransaction.deleteMany({
+      where: { id: req.params.id, userId: authUserId(req) },
+    });
+
+    if (!result.count) {
+      res.status(404).json({ message: "Recorrencia nao encontrada." });
+      return;
+    }
+
+    res.status(204).end();
   }),
 );
 

@@ -16,6 +16,7 @@ model User {
   transactions Transaction[]
   tasks        Task[]
   goals        Goal[]
+  recurring    RecurringTransaction[]
 }
 
 model Transaction {
@@ -32,6 +33,22 @@ model Transaction {
   @@index([createdAt])
   @@index([userId, createdAt])
   @@index([userId, date])
+}
+
+model RecurringTransaction {
+  id           String   @id @default(cuid())
+  description  String
+  category     String
+  type         String
+  amount       Decimal  @db.Decimal(12, 2)
+  dayOfMonth   Int
+  active       Boolean  @default(true)
+  lastRunMonth String?
+  createdAt    DateTime @default(now())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, active])
 }
 
 model Goal {

@@ -33,6 +33,16 @@ export interface Goal {
   monthlyLimit: number;
 }
 
+export interface RecurringTransaction {
+  id: string;
+  description: string;
+  category: string;
+  type: TransactionType;
+  amount: number;
+  dayOfMonth: number;
+  active: boolean;
+}
+
 export type InsightType = "info" | "success" | "warning";
 
 export interface Insight {

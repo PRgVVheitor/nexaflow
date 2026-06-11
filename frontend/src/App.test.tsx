@@ -89,6 +89,17 @@ const responses: Record<string, unknown> = {
   "/api/finance/intelligence": defaultIntelligence,
   "/api/tasks": defaultTasks,
   "/api/goals": [{ id: "goal-test", category: "Alimentacao", monthlyLimit: 800 }],
+  "/api/recurring": [
+    {
+      id: "rec-test",
+      description: "Assinatura teste",
+      category: "Servicos",
+      type: "expense",
+      amount: 39.9,
+      dayOfMonth: 10,
+      active: true,
+    },
+  ],
 };
 
 beforeAll(async () => {
@@ -103,6 +114,17 @@ beforeEach(() => {
   responses["/api/finance/intelligence"] = defaultIntelligence;
   responses["/api/tasks"] = defaultTasks;
   responses["/api/goals"] = [{ id: "goal-test", category: "Alimentacao", monthlyLimit: 800 }];
+  responses["/api/recurring"] = [
+    {
+      id: "rec-test",
+      description: "Assinatura teste",
+      category: "Servicos",
+      type: "expense",
+      amount: 39.9,
+      dayOfMonth: 10,
+      active: true,
+    },
+  ];
   delete responses["/api/transactions/tx-test"];
   delete responses["/api/tasks/task-test"];
   URL.createObjectURL = vi.fn(() => "blob:nexaflow-test");
@@ -232,6 +254,18 @@ describe("NexaFlow", () => {
     expect(await screen.findByText(/R\$\s*0,00 de R\$\s*800,00/)).toBeInTheDocument();
     expect(
       screen.getByRole("progressbar", { name: /meta de Alimentação/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("exibe as transações recorrentes cadastradas", async () => {
+    localStorage.setItem("nexaflow-token", "token-test");
+    render(<App />);
+
+    expect(await screen.findByText("Transações recorrentes")).toBeInTheDocument();
+    expect(await screen.findByText("Assinatura teste")).toBeInTheDocument();
+    expect(screen.getByText("Todo dia 10")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Pausar recorrência Assinatura teste" }),
     ).toBeInTheDocument();
   });
 
