@@ -29,9 +29,11 @@ Mostrar no GitHub um produto com separação clara entre front-end e back-end, c
 - PostgreSQL
 - Prisma ORM
 - Docker Compose
+- Helmet
 - Vitest
 - Testing Library
 - Supertest
+- ESLint
 - GitHub Actions
 - JavaScript
 
@@ -41,8 +43,9 @@ Mostrar no GitHub um produto com separação clara entre front-end e back-end, c
 - Mikal, assistente financeiro flutuante com perguntas rápidas e respostas calculadas a partir dos dados da conta.
 - Inteligência Financeira V1 com Nexa Score explicável, previsão de saldo em 7, 15 e 30 dias, alertas de anomalias e feed de insights.
 - Filtros financeiros por semana, mês, ano ou intervalo personalizado.
+- Data própria em cada transação: registre lançamentos retroativos e corrija a data depois.
 - Exportação das transações filtradas em CSV.
-- Edição inline de descrição, categoria, tipo e valor das transações.
+- Edição inline de data, descrição, categoria, tipo e valor das transações.
 - Estados vazios e skeletons de carregamento nos painéis.
 - Categorias financeiras padronizadas e seletor visual de entrada ou saída.
 - Cadastro e remoção de transações.
@@ -57,6 +60,7 @@ Mostrar no GitHub um produto com separação clara entre front-end e back-end, c
 - Dados financeiros e tarefas isolados por usuário.
 - Senhas protegidas com bcrypt e sessões assinadas com JWT.
 - Rate limiting nas rotas de login e cadastro.
+- Headers de segurança com Helmet.
 - Validação de entradas e variáveis de ambiente com Zod.
 - Respostas de erro padronizadas na API.
 - Componentes reutilizaveis: Card, Button, Input, Badge, Table e Select.
@@ -167,6 +171,15 @@ npm run dev:backend
 
 O arquivo `render.yaml` cria uma API Node e um PostgreSQL no Render, aplica as migrations e sincroniza o seed demonstrativo em cada deploy. O seed usa `upsert`: garante os dados de demonstração sem apagar contas, tarefas ou transações existentes. Durante o deploy, configure `CLIENT_ORIGIN` com a URL publicada do frontend.
 
+## Estrutura do frontend
+
+```
+frontend/src/
+├── pages/        # AuthScreen, FinanceDashboard, TasksApp
+├── components/   # UI reutilizável: gráficos, formulários, skeletons, Kanban, Mikal
+└── lib/          # Cliente da API, schemas, formatação, datas e constantes
+```
+
 ## Testes e integração contínua
 
 Com PostgreSQL ativo, execute toda a suite local:
@@ -175,10 +188,19 @@ Com PostgreSQL ativo, execute toda a suite local:
 npm test
 ```
 
+Para verificar o lint dos dois pacotes:
+
+```bash
+npm run lint
+```
+
 Os testes do backend validam autenticação, isolamento entre usuários e rotas HTTP contra PostgreSQL real. Os testes do frontend verificam login, cadastro, carregamento do dashboard e navegação para o Taskly com uma API simulada.
 
-O workflow `.github/workflows/ci.yml` cria um PostgreSQL temporário e executa migrations, testes e build automaticamente em cada push e pull request.
+O workflow `.github/workflows/ci.yml` cria um PostgreSQL temporário e executa lint, migrations, testes e build automaticamente em cada push e pull request.
 
 ## Próximas melhorias
 
 - Publicar o frontend e conectar ao backend hospedado.
+- Paginação e filtros de período direto na API de transações.
+- Migração incremental para TypeScript.
+- Testes end-to-end com Playwright.
