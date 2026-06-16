@@ -186,6 +186,22 @@ npm run dev:backend
 
 ## Deploy
 
+### Frontend na Vercel
+
+O projeto inclui `vercel.json` na raiz e em `frontend/`, entao pode ser importado na Vercel de duas formas:
+
+- Repositorio inteiro: use a raiz do projeto. A Vercel executa `npm ci --prefix frontend`, `npm run build --prefix frontend` e publica `frontend/dist`.
+- Somente frontend: selecione `frontend` como Root Directory. A Vercel executa `npm ci`, `npm run build` e publica `dist`.
+
+Para publicar apenas a vitrine do projeto, nenhuma variavel e obrigatoria: a conta demonstrativa funciona no navegador mesmo sem backend ativo.
+
+Quando o backend estiver online, configure no painel da Vercel:
+
+- `VITE_API_URL`: URL HTTPS da API.
+- `VITE_SENTRY_DSN`: opcional, para monitoramento de erros no frontend.
+
+### Aplicacao completa no Render
+
 O `render.yaml` cria o frontend estático, a API Node e o PostgreSQL no Render. No primeiro deploy, configure:
 
 - `VITE_API_URL`: URL HTTPS da API.
