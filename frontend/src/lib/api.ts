@@ -1,10 +1,15 @@
 import { demoApi, demoModeKey } from "../demo";
 
-export const apiUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:3001";
+export const apiUrl =
+  import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://127.0.0.1:3001" : "");
 
 export async function api<T = unknown>(path: string, options: RequestInit = {}): Promise<T> {
   if (localStorage.getItem(demoModeKey) === "true") {
     return demoApi(path, options) as T;
+  }
+
+  if (!apiUrl) {
+    throw new Error("API não configurada. Use a conta demonstrativa.");
   }
 
   const response = await fetch(`${apiUrl}${path}`, {
