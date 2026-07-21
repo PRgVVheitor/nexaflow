@@ -1,6 +1,6 @@
 # NexaFlow
 
-[![CI](https://github.com/PRgVVheitor/nexaflow/actions/workflows/ci.yml/badge.svg)](https://github.com/PRgVVheitor/nexaflow/actions/workflows/ci.yml)
+[![CI](https://github.com/PRGHeitorAraujo/nexaflow/actions/workflows/ci.yml/badge.svg)](https://github.com/PRGHeitorAraujo/nexaflow/actions/workflows/ci.yml)
 
 Aplicação full-stack para centralizar finanças e produtividade em um painel único.
 
